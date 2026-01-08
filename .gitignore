@@ -1,0 +1,175 @@
+# =======================================
+# ARCHIVOS CRÍTICOS - NO SUBIR A GITHUB
+# =======================================
+
+# Variables de entorno con credenciales de Supabase
+.env
+
+# =======================================
+# ENTORNO VIRTUAL DE PYTHON
+# =======================================
+
+# Carpetas del entorno virtual
+Scripts/
+Lib/
+Include/
+pyvenv.cfg
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# =======================================
+# ARCHIVOS DE PYTHON
+# =======================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# =======================================
+# ARCHIVOS SUBIDOS POR USUARIOS
+# =======================================
+
+uploads/
+*.log
+
+# =======================================
+# EDITORES E IDES
+# =======================================
+
+# VSCode
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# PyCharm
+.idea/
+.idea/*
+*.iml
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# =======================================
+# SISTEMA OPERATIVO
+# =======================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# =======================================
+# BASES DE DATOS LOCALES
+# =======================================
+
+*.db
+*.sqlite
+*.sqlite3
+
+# =======================================
+# LOGS Y TEMPORALES
+# =======================================
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.npm
+.eslintcache
+
+# =======================================
+# OTROS
+# =======================================
+
+# Archivos de respaldo
+*.bak
+*.backup
+*.old
+*.tmp
+
+# Certificados y claves
+*.pem
+*.key
+*.crt
+*.cer
+
+# Archivos comprimidos
+*.zip
+*.tar.gz
+*.rar

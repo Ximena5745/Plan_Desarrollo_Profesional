@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan de Desarrollo Profesional</title>
+    
+    <!-- Tailwind CSS + DaisyUI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet">
+    
+    <!-- Alpine.js para interactividad -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        /* Animaciones personalizadas */
+        @keyframes slideIn {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        /* Kanban drag styles */
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        
+        .drag-over {
+            border: 2px dashed #6366f1;
+            background-color: #eef2ff;
+        }
+        
+        /* Scrollbar personalizado */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="bg-base-200" x-data="appData()" x-init="init()">
+    
+    <!-- Navbar -->
+    <div class="navbar bg-base-100 shadow-lg">
+        <div class="flex-1">
+            <a href="/" class="btn btn-ghost text-xl">
+                <i class="fas fa-chart-line text-primary"></i>
+                Plan de Desarrollo
+            </a>
+        </div>
+        
+        <!-- Navigation Menu -->
+        <div class="flex-none hidden lg:flex">
+            <ul class="menu menu-horizontal px-1">
+                <li><a @click="currentView = 'dashboard'" :class="currentView === 'dashboard' ? 'active' : ''">
+                    <i class="fas fa-home"></i> Dashboard
+                </a></li>
+                <li><a @click="currentView = 'tasks'" :class="currentView === 'tasks' ? 'active' : ''">
+                    <i class="fas fa-tasks"></i> Tareas
+                </a></li>
+                <li><a @click="currentView = 'monthly'" :class="currentView === 'monthly' ? 'active' : ''">
+                    <i class="fas fa-calendar-alt"></i> Plan Mensual
+                </a></li>
+                <li><a @click="currentView = 'weekly'" :class="currentView === 'weekly' ? 'active' : ''">
+                    <i class="fas fa-book"></i> Bitácora Semanal
+                </a></li>
+            </ul>
+        </div>
+        
+        <!-- User Menu -->
+        <div class="flex-none gap-2">
+            <!-- Theme Toggle -->
+            <label class="swap swap-rotate">
+                <input type="checkbox" @change="toggleTheme" />
+                <i class="fas fa-sun swap-on text-2xl"></i>
+                <i class="fas fa-moon swap-off text-2xl"></i>
+            </label>
+            
+            <!-- User Dropdown -->
+            <div class="dropdown dropdown-end">
+                <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar placeholder">
+                    <div class="bg-primary text-primary-content rounded-full w-10">
+                        <span x-text="userInitials"></span>
+                    </div>
+                </div>
+                <ul tabindex="0" class="mt-3 z-[1] p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52">
+                    <li><a><i class="fas fa-user"></i> Perfil</a></li>
+                    <li><a><i class="fas fa-cog"></i> Configuración</a></li>
+                    <li><a @click="logout"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div class="drawer drawer-end lg:hidden">
+            <input id="mobile-drawer" type="checkbox" class="drawer-toggle" />
+            <div class="drawer-content">
+                <label for="mobile-drawer" class="btn btn-square btn-ghost">
+                    <i class="fas fa-bars text-xl"></i>
+                </label>
+            </div>
+            <div class="drawer-side z-50">
+                <label for="mobile-drawer" class="drawer-overlay"></label>
+                <ul class="menu p-4 w-80 min-h-full bg-base-100">
+                    <li><a @click="currentView = 'dashboard'"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li><a @click="currentView = 'tasks'"><i class="fas fa-tasks"></i> Tareas</a></li>
+                    <li><a @click="currentView = 'monthly'"><i class="fas fa-calendar-alt"></i> Plan Mensual</a></li>
+                    <li><a @click="currentView = 'weekly'"><i class="fas fa-book"></i> Bitácora Semanal</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 mt-4">
+        
+        <!-- DASHBOARD VIEW -->
+        <div x-show="currentView === 'dashboard'" class="slide-in">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+                <!-- Stat Cards -->
+                <div class="stat bg-base-100 shadow-lg rounded-box">
+                    <div class="stat-figure text-primary">
+                        <i class="fas fa-tasks text-3xl"></i>
+                    </div>
+                    <div class="stat-title">Total Tareas</div>
+                    <div class="stat-value text-primary" x-text="stats.totalTasks"></div>
+                    <div class="stat-desc">Este mes</div>
+                </div>
+                
+                <div class="stat bg-base-100 shadow-lg rounded-box">
+                    <div class="stat-figure text-success">
+                        <i class="fas fa-check-circle text-3xl"></i>
+                    </div>
+                    <div class="stat-title">Completadas</div>
+                    <div class="stat-value text-success" x-text="stats.completedTasks"></div>
+                    <div class="stat-desc" x-text="`${stats.completionRate}% completado`"></div>
+                </div>
+                
+                <div class="stat bg-base-100 shadow-lg rounded-box">
+                    <div class="stat-figure text-warning">
+                        <i class="fas fa-clock text-3xl"></i>
+                    </div>
+                    <div class="stat-title">Pendientes</div>
+                    <div class="stat-value text-warning" x-text="stats.pendingTasks"></div>
+                    <div class="stat-desc">Por hacer</div>
+                </div>
+                
+                <div class="stat bg-base-100 shadow-lg rounded-box">
+                    <div class="stat-figure text-info">
+                        <i class="fas fa-book text-3xl"></i>
+                    </div>
+                    <div class="stat-title">Bitácoras</div>
+                    <div class="stat-value text-info" x-text="stats.weeklyLogsCount"></div>
+                    <div class="stat-desc">Semanales</div>
+                </div>
+            </div>
+            
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                <div class="card bg-base-100 shadow-lg">
+                    <div class="card-body">
+                        <h2 class="card-title"><i class="fas fa-chart-line text-primary"></i> Progreso Semanal</h2>
+                        <canvas id="weeklyChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card bg-base-100 shadow-lg">
+                    <div class="card-body">
+                        <h2 class="card-title"><i class="fas fa-chart-pie text-secondary"></i> Tareas por Categoría</h2>
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Tasks -->
+            <div class="card bg-base-100 shadow-lg">
+                <div class="card-body">
+                    <h2 class="card-title"><i class="fas fa-history text-accent"></i> Actividad Reciente</h2>
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra">
+                            <thead>
+                                <tr>
+                                    <th>Tarea</th>
+                                    <th>Categoría</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="task in recentTasks" :key="task.id">
+                                    <tr>
+                                        <td x-text="task.titulo"></td>
+                                        <td><span class="badge badge-outline" x-text="task.categoria"></span></td>
+                                        <td><span class="badge" :class="getStatusBadgeClass(task.estado)" x-text="task.estado"></span></td>
+                                        <td x-text="formatDate(task.fecha)"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- TASKS VIEW -->
+        <div x-show="currentView === 'tasks'" class="slide-in">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl font-bold"><i class="fas fa-tasks text-primary"></i> Gestión de Tareas</h1>
+                <button class="btn btn-primary" @click="showNewTaskModal = true">
+                    <i class="fas fa-plus"></i> Nueva Tarea
+                </button>
+            </div>
+            
+            <!-- View Toggle -->
+            <div class="tabs tabs-boxed mb-4 bg-base-100 shadow">
+                <a class="tab" :class="taskView === 'list' ? 'tab-active' : ''" @click="taskView = 'list'">
+                    <i class="fas fa-list mr-2"></i> Lista
+                </a>
+                <a class="tab" :class="taskView === 'kanban' ? 'tab-active' : ''" @click="taskView = 'kanban'">
+                    <i class="fas fa-columns mr-2"></i> Kanban
+                </a>
+            </div>
+            
+            <!-- List View -->
+            <div x-show="taskView === 'list'">
+                <div class="card bg-base-100 shadow-lg">
+                    <div class="card-body">
+                        <div class="overflow-x-auto">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>
+                                            <input type="checkbox" class="checkbox" />
+                                        </th>
+                                        <th>Tarea</th>
+                                        <th>Categoría</th>
+                                        <th>Prioridad</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="task in tasks" :key="task.id">
+                                        <tr>
+                                            <td>
+                                                <input type="checkbox" class="checkbox" :checked="task.estado === 'completada'" />
+                                            </td>
+                                            <td>
+                                                <div class="font-bold" x-text="task.titulo"></div>
+                                                <div class="text-sm opacity-50" x-text="task.descripcion"></div>
+                                            </td>
+                                            <td><span class="badge badge-outline" x-text="task.categoria"></span></td>
+                                            <td><span class="badge" :class="getPriorityBadgeClass(task.prioridad)" x-text="task.prioridad"></span></td>
+                                            <td><span class="badge" :class="getStatusBadgeClass(task.estado)" x-text="task.estado"></span></td>
+                                            <td x-text="formatDate(task.fecha)"></td>
+                                            <td>
+                                                <div class="flex gap-2">
+                                                    <button class="btn btn-ghost btn-xs" @click="editTask(task)">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-ghost btn-xs text-error" @click="deleteTask(task.id)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Kanban View -->
+            <div x-show="taskView === 'kanban'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Pendientes Column -->
+                <div class="card bg-base-100 shadow-lg">
+                    <div class="card-body">
+                        <h3 class="card-title text-warning">
+                            <i class="fas fa-clock"></i> Pendientes
+                            <span class="badge badge-warning" x-text="getTasksByStatus('pendiente').length"></span>
+                        </h3>
+                        <div class="space-y-2 min-h-[400px]" 
+                             @drop="handleDrop($event, 'pendiente')" 
+                             @dragover.prevent 
+                             @dragenter.prevent="$event.target.classList.add('drag-over')"
+                             @dragleave="$event.target.classList.remove('drag-over')">
+                            <template x-for="task in getTasksByStatus('pendiente')" :key="task.id">
+                                <div class="card bg-base-200 shadow cursor-move" 
+                                     draggable="true"
+                                     @dragstart="handleDragStart($event, task)"
+                                     @dragend="handleDragEnd">
+                                    <div class="card-body p-4">
+                                        <h4 class="font-bold" x-text="task.titulo"></h4>
+                                        <p class="text-sm opacity-70" x-text="task.descripcion"></p>
+                                        <div class="flex justify-between items-center mt-2">
+                                            <span class="badge badge-sm" x-text="task.categoria"></span>
+                                            <span class="badge badge-sm" :class="getPriorityBadgeClass(task.prioridad)" x-text="task.prioridad"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- En Progreso Column -->
+                <div class="card bg-base-100 shadow-lg">
+                    <div class="card-body">
+                        <h3 class="card-title text-info">
+                            <i class="fas fa-spinner"></i> En Progreso
+                            <span class="badge badge-info" x-text="getTasksByStatus('en_progreso').length"></span>
+                        </h3>
+                        <div class="space-y-2 min-h-[400px]"
+                             @drop="handleDrop($event, 'en_progreso')" 
+                             @dragover.prevent
+                             @dragenter.prevent="$event.target.classList.add('drag-over')"
+                             @dragleave="$event.target.classList.remove('drag-over')">
+                            <template x-for="task in getTasksByStatus('en_progreso')" :key="task.id">
+                                <div class="card bg-base-200 shadow cursor-move" 
+                                     draggable="true"
+                                     @dragstart="handleDragStart($event, task)"
+                                     @dragend="handleDragEnd">
+                                    <div class="card-body p-4">
+                                        <h4 class="font-bold" x-text="task.titulo"></h4>
+                                        <p class="text-sm opacity-70" x-text="task.descripcion"></p>
+                                        <div class="flex justify-between items-center mt-2">
+                                            <span class="badge badge-sm" x-text="task.categoria"></span>
+                                            <span class="badge badge-sm" :class="getPriorityBadgeClass(task.prioridad)" x-text="task.prioridad"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Completadas Column -->
+                <div class="card bg-base-100 shadow-lg">
+                    <div class="card-body">
+                        <h3 class="card-title text-success">
+                            <i class="fas fa-check-circle"></i> Completadas
+                            <span class="badge badge-success" x-text="getTasksByStatus('completada').length"></span>
+                        </h3>
+                        <div class="space-y-2 min-h-[400px]"
+                             @drop="handleDrop($event, 'completada')" 
+                             @dragover.prevent
+                             @dragenter.prevent="$event.target.classList.add('drag-over')"
+                             @dragleave="$event.target.classList.remove('drag-over')">
+                            <template x-for="task in getTasksByStatus('completada')" :key="task.id">
+                                <div class="card bg-base-200 shadow cursor-move" 
+                                     draggable="true"
+                                     @dragstart="handleDragStart($event, task)"
+                                     @dragend="handleDragEnd">
+                                    <div class="card-body p-4">
+                                        <h4 class="font-bold line-through" x-text="task.titulo"></h4>
+                                        <p class="text-sm opacity-70" x-text="task.descripcion"></p>
+                                        <div class="flex justify-between items-center mt-2">
+                                            <span class="badge badge-sm" x-text="task.categoria"></span>
+                                            <span class="text-xs text-success">✓ Completada</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- MONTHLY VIEW -->
+        <div x-show="currentView === 'monthly'" class="slide-in">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl font-bold"><i class="fas fa-calendar-alt text-primary"></i> Plan Mensual</h1>
+                <button class="btn btn-primary" @click="showNewMonthlyPlanModal = true">
+                    <i class="fas fa-plus"></i> Nuevo Plan
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Inicio de Mes -->
+                <div class="card bg-base-100 shadow-lg">
+                    <div class="card-body">
+                        <h2 class="card-title">
+                            <i class="fas fa-play-circle text-success"></i>
+                            Inicio de Mes
+                        </h2>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Competencias a Trabajar</span>
+                            </label>
+                            <textarea class="textarea textarea-bordered" placeholder="Comunicación, Liderazgo, etc." rows="3"></textarea>
+                        </div>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">¿Qué quiero lograr?</span>
+                            </label>
+                            <textarea class="textarea textarea-bordered" placeholder="Mis objetivos del mes..." rows="4"></textarea>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Mis Fortalezas 💪</span>
+                                </label>
+                                <textarea class="textarea textarea-bordered" rows="3"></textarea>
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Mis Debilidades 🎯</span>
+                                </label>
+                                <textarea class="textarea textarea-bordered" rows="3"></textarea>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary mt-4">
+                            <i class="fas fa-save"></i> Guardar Plan
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Fin de Mes -->
+                <div class="card bg-base-100 shadow-lg">
+                    <div class="card-body">
+                        <h2 class="card-title">
+                            <i class="fas fa-flag-checkered text-error"></i>
+                            Fin de Mes - Evaluación
+                        </h2>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">¿Qué mejoré? 📈</span>
+                            </label>
+                            <textarea class="textarea textarea-bordered" placeholder="Mis logros..." rows="3"></textarea>
+                        </div>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">¿Qué me faltó mejorar? 🔍</span>
+                            </label>
+                            <textarea class="textarea textarea-bordered" rows="3"></textarea>
+                        </div>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Habilidades Desarrolladas ✨</span>
+                            </label>
+                            <input type="text" class="input input-bordered" placeholder="Análisis de datos, Presentaciones..." />
+                        </div>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Momento Memorable 📸</span>
+                            </label>
+                            <textarea class="textarea textarea-bordered" rows="2"></textarea>
+                        </div>
+                        <button class="btn btn-secondary mt-4">
+                            <i class="fas fa-check"></i> Guardar Evaluación
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- WEEKLY VIEW -->
+        <div x-show="currentView === 'weekly'" class="slide-in">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl font-bold"><i class="fas fa-book text-primary"></i> Bitácora Semanal</h1>
+                <button class="btn btn-primary" @click="showNewWeeklyLogModal = true">
+                    <i class="fas fa-plus"></i> Nueva Bitácora
+                </button>
+            </div>
+            
+            <div class="card bg-base-100 shadow-lg">
+                <div class="card-body">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Semana del:</span>
+                            </label>
+                            <input type="date" class="input input-bordered" />
+                        </div>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">al:</span>
+                            </label>
+                            <input type="date" class="input input-bordered" />
+                        </div>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Logros de la semana 🏆</span>
+                        </label>
+                        <textarea class="textarea textarea-bordered" placeholder="¿Qué logré esta semana?" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Desafíos enfrentados 💪</span>
+                        </label>
+                        <textarea class="textarea textarea-bordered" placeholder="Obstáculos y cómo los superé..." rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Aprendizajes 📚</span>
+                        </label>
+                        <textarea class="textarea textarea-bordered" placeholder="¿Qué aprendí?" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Reflexiones 💭</span>
+                        </label>
+                        <textarea class="textarea textarea-bordered" placeholder="Pensamientos sobre mi progreso..." rows="4"></textarea>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Nivel de Energía (1-5) ⚡</span>
+                            </label>
+                            <input type="range" min="1" max="5" class="range range-primary" step="1" />
+                        </div>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Satisfacción (1-5) 😊</span>
+                            </label>
+                            <input type="range" min="1" max="5" class="range range-success" step="1" />
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary mt-4 btn-block">
+                        <i class="fas fa-save"></i> Guardar Bitácora
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Historial de Bitácoras -->
+            <div class="mt-6">
+                <h2 class="text-2xl font-bold mb-4">Historial</h2>
+                <div class="grid grid-cols-1 gap-4">
+                    <template x-for="(log, index) in weeklyLogs" :key="index">
+                        <div class="card bg-base-100 shadow">
+                            <div class="card-body">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <h3 class="card-title text-lg">
+                                            Semana <span x-text="formatDate(log.semana_inicio)"></span> - <span x-text="formatDate(log.semana_fin)"></span>
+                                        </h3>
+                                        <p class="text-sm opacity-70 mt-2" x-text="log.reflexiones"></p>
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i></button>
+                                        <button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i></button>
+                                    </div>
+                                </div>
+                                <div class="divider"></div>
+                                <div class="grid grid-cols-2 gap-2 text-sm">
+                                    <div>
+                                        <span class="font-semibold">Energía:</span>
+                                        <div class="rating rating-sm">
+                                            <template x-for="i in 5">
+                                                <input type="radio" class="mask mask-star-2 bg-orange-400" :checked="i <= log.nivel_energia" disabled />
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span class="font-semibold">Satisfacción:</span>
+                                        <div class="rating rating-sm">
+                                            <template x-for="i in 5">
+                                                <input type="radio" class="mask mask-star-2 bg-green-400" :checked="i <= log.nivel_satisfaccion" disabled />
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        
+    </main>
+    
+    <!-- Toast Notifications -->
+    <div class="toast toast-end" x-show="showToast" x-transition>
+        <div class="alert" :class="toastType === 'success' ? 'alert-success' : 'alert-error'">
+            <span x-text="toastMessage"></span>
+        </div>
+    </div>
+    
+    <!-- Alpine.js Data -->
+    <script>
+        function appData() {
+            return {
+                // Estado general
+                currentView: 'dashboard',
+                taskView: 'list',
+                userInitials: 'U',
+                showToast: false,
+                toastMessage: '',
+                toastType: 'success',
+                
+                // Datos
+                stats: {
+                    totalTasks: 0,
+                    completedTasks: 0,
+                    pendingTasks: 0,
+                    completionRate: 0,
+                    weeklyLogsCount: 0
+                },
+                tasks: [],
+                recentTasks: [],
+                weeklyLogs: [],
+                draggedTask: null,
+                
+                // Modales
+                showNewTaskModal: false,
+                showNewMonthlyPlanModal: false,
+                showNewWeeklyLogModal: false,
+                
+                // Inicialización
+                async init() {
+                    const token = localStorage.getItem('access_token');
+                    if (!token) {
+                        window.location.href = '/login';
+                        return;
+                    }
+                    
+                    this.userInitials = this.getUserInitials();
+                    await this.loadDashboardData();
+                    await this.loadTasks();
+                    await this.loadWeeklyLogs();
+                    this.initCharts();
+                },
+                
+                getUserInitials() {
+                    const email = localStorage.getItem('user_email') || 'user@example.com';
+                    return email.charAt(0).toUpperCase();
+                },
+                
+                async loadDashboardData() {
+                    try {
+                        const response = await this.apiCall('/api/dashboard/summary');
+                        if (response) {
+                            this.stats = response;
+                        }
+                    } catch (error) {
+                        console.error('Error loading dashboard:', error);
+                    }
+                },
+                
+                async loadTasks() {
+                    try {
+                        const response = await this.apiCall('/api/tasks');
+                        if (response) {
+                            this.tasks = response;
+                            this.recentTasks = response.slice(0, 5);
+                        }
+                    } catch (error) {
+                        console.error('Error loading tasks:', error);
+                    }
+                },
+                
+                async loadWeeklyLogs() {
+                    try {
+                        const response = await this.apiCall('/api/weekly/logs');
+                        if (response) {
+                            this.weeklyLogs = response;
+                        }
+                    } catch (error) {
+                        console.error('Error loading weekly logs:', error);
+                    }
+                },
+                
+                async apiCall(endpoint, method = 'GET', data = null) {
+                    const token = localStorage.getItem('access_token');
+                    const options = {
+                        method,
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    };
+                    
+                    if (data && method !== 'GET') {
+                        options.body = JSON.stringify(data);
+                    }
+                    
+                    const response = await fetch(endpoint, options);
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                    throw new Error('API call failed');
+                },
+                
+                // Funciones de utilidad
+                formatDate(dateString) {
+                    if (!dateString) return '';
+                    return new Date(dateString).toLocaleDateString('es-ES');
+                },
+                
+                getStatusBadgeClass(status) {
+                    const classes = {
+                        'pendiente': 'badge-warning',
+                        'en_progreso': 'badge-info',
+                        'completada': 'badge-success',
+                        'cancelada': 'badge-error'
+                    };
+                    return classes[status] || '';
+                },
+                
+                getPriorityBadgeClass(priority) {
+                    const classes = {
+                        'alta': 'badge-error',
+                        'media': 'badge-warning',
+                        'baja': 'badge-success'
+                    };
+                    return classes[priority] || '';
+                },
+                
+                getTasksByStatus(status) {
+                    return this.tasks.filter(task => task.estado === status);
+                },
+                
+                // Drag and Drop Handlers
+                handleDragStart(event, task) {
+                    this.draggedTask = task;
+                    event.target.classList.add('dragging');
+                },
+                
+                handleDragEnd(event) {
+                    event.target.classList.remove('dragging');
+                    document.querySelectorAll('.drag-over').forEach(el => {
+                        el.classList.remove('drag-over');
+                    });
+                },
+                
+                async handleDrop(event, newStatus) {
+                    event.preventDefault();
+                    event.target.classList.remove('drag-over');
+                    
+                    if (this.draggedTask && this.draggedTask.estado !== newStatus) {
+                        try {
+                            await this.apiCall(`/api/tasks/${this.draggedTask.id}`, 'PUT', {
+                                estado: newStatus
+                            });
+                            
+                            // Actualizar estado local
+                            const task = this.tasks.find(t => t.id === this.draggedTask.id);
+                            if (task) {
+                                task.estado = newStatus;
+                            }
+                            
+                            this.showNotification('Tarea actualizada correctamente', 'success');
+                        } catch (error) {
+                            this.showNotification('Error al actualizar tarea', 'error');
+                        }
+                    }
+                    
+                    this.draggedTask = null;
+                },
+                
+                // CRUD Operations
+                async deleteTask(taskId) {
+                    if (!confirm('¿Estás seguro de eliminar esta tarea?')) return;
+                    
+                    try {
+                        await this.apiCall(`/api/tasks/${taskId}`, 'DELETE');
+                        this.tasks = this.tasks.filter(t => t.id !== taskId);
+                        this.showNotification('Tarea eliminada', 'success');
+                    } catch (error) {
+                        this.showNotification('Error al eliminar tarea', 'error');
+                    }
+                },
+                
+                // UI Functions
+                toggleTheme() {
+                    const html = document.documentElement;
+                    const currentTheme = html.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    html.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('theme', newTheme);
+                },
+                
+                showNotification(message, type = 'success') {
+                    this.toastMessage = message;
+                    this.toastType = type;
+                    this.showToast = true;
+                    setTimeout(() => {
+                        this.showToast = false;
+                    }, 3000);
+                },
+                
+                logout() {
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('user_email');
+                    window.location.href = '/login';
+                },
+                
+                initCharts() {
+                    // Chart.js initialization will go here
+                    console.log('Charts initialized');
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Plan de Desarrollo</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.4.19/dist/full.min.css" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-purple-50 to-indigo-100 min-h-screen flex items-center justify-center p-4" 
+      x-data="loginData()" 
+      x-init="checkAuth()">
+    
+    <div class="card w-full max-w-md bg-base-100 shadow-2xl">
+        <div class="card-body">
+            <!-- Logo y Título -->
+            <div class="text-center mb-6">
+                <div class="w-20 h-20 mx-auto mb-4 bg-primary rounded-full flex items-center justify-center">
+                    <i class="fas fa-chart-line text-4xl text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-primary">Plan de Desarrollo</h1>
+                <p class="text-gray-600 mt-2">Gestiona tu crecimiento profesional</p>
+            </div>
+            
+            <!-- Tabs de Login/Registro -->
+            <div class="tabs tabs-boxed mb-6">
+                <a class="tab" :class="isLogin ? 'tab-active' : ''" @click="isLogin = true">Iniciar Sesión</a>
+                <a class="tab" :class="!isLogin ? 'tab-active' : ''" @click="isLogin = false">Registrarse</a>
+            </div>
+            
+            <!-- Formulario de Login -->
+            <form x-show="isLogin" @submit.prevent="handleLogin">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Correo Electrónico</span>
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-envelope text-gray-400"></i>
+                        </div>
+                        <input type="email" 
+                               x-model="email" 
+                               placeholder="tu@email.com" 
+                               class="input input-bordered w-full pl-10"
+                               required>
+                    </div>
+                </div>
+                
+                <div class="form-control mt-4">
+                    <label class="label">
+                        <span class="label-text">Contraseña</span>
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-lock text-gray-400"></i>
+                        </div>
+                        <input :type="showPassword ? 'text' : 'password'" 
+                               x-model="password" 
+                               placeholder="••••••••" 
+                               class="input input-bordered w-full pl-10 pr-10"
+                               required>
+                        <button type="button" 
+                                @click="showPassword = !showPassword"
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <i :class="showPassword ? 'fas fa-eye-slash' : 'fas fa-eye'" class="text-gray-400"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-control mt-6">
+                    <button type="submit" class="btn btn-primary" :class="loading ? 'loading' : ''">
+                        <i class="fas fa-sign-in-alt mr-2" x-show="!loading"></i>
+                        <span x-text="loading ? 'Iniciando sesión...' : 'Iniciar Sesión'"></span>
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Formulario de Registro -->
+            <form x-show="!isLogin" @submit.prevent="handleRegister">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text">Nombre Completo</span>
+                    </label>
+                    <input type="text" 
+                           x-model="nombreCompleto" 
+                           placeholder="Juan Pérez" 
+                           class="input input-bordered w-full">
+                </div>
+                
+                <div class="form-control mt-4">
+                    <label class="label">
+                        <span class="label-text">Correo Electrónico</span>
+                    </label>
+                    <input type="email" 
+                           x-model="email" 
+                           placeholder="tu@email.com" 
+                           class="input input-bordered w-full"
+                           required>
+                </div>
+                
+                <div class="form-control mt-4">
+                    <label class="label">
+                        <span class="label-text">Contraseña</span>
+                    </label>
+                    <input :type="showPassword ? 'text' : 'password'" 
+                           x-model="password" 
+                           placeholder="••••••••" 
+                           class="input input-bordered w-full"
+                           required
+                           minlength="6">
+                    <label class="label">
+                        <span class="label-text-alt">Mínimo 6 caracteres</span>
+                    </label>
+                </div>
+                
+                <div class="form-control mt-6">
+                    <button type="submit" class="btn btn-primary" :class="loading ? 'loading' : ''">
+                        <i class="fas fa-user-plus mr-2" x-show="!loading"></i>
+                        <span x-text="loading ? 'Registrando...' : 'Crear Cuenta'"></span>
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Alert de error -->
+            <div x-show="error" class="alert alert-error mt-4" x-transition>
+                <i class="fas fa-exclamation-circle"></i>
+                <span x-text="errorMessage"></span>
+            </div>
+            
+            <!-- Alert de éxito -->
+            <div x-show="success" class="alert alert-success mt-4" x-transition>
+                <i class="fas fa-check-circle"></i>
+                <span x-text="successMessage"></span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function loginData() {
+            return {
+                isLogin: true,
+                showPassword: false,
+                loading: false,
+                error: false,
+                success: false,
+                errorMessage: '',
+                successMessage: '',
+                
+                // Form fields
+                email: '',
+                password: '',
+                nombreCompleto: '',
+                
+                checkAuth() {
+                    const token = localStorage.getItem('access_token');
+                    if (token) {
+                        window.location.href = '/dashboard';
+                    }
+                },
+                
+                async handleLogin() {
+                    this.loading = true;
+                    this.error = false;
+                    
+                    try {
+                        const response = await fetch('/api/auth/login', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                email: this.email,
+                                password: this.password
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            localStorage.setItem('access_token', data.access_token);
+                            localStorage.setItem('user_email', data.email);
+                            localStorage.setItem('user_id', data.user_id);
+                            
+                            this.success = true;
+                            this.successMessage = '¡Inicio de sesión exitoso! Redirigiendo...';
+                            
+                            setTimeout(() => {
+                                window.location.href = '/dashboard';
+                            }, 1000);
+                        } else {
+                            const errorData = await response.json();
+                            this.error = true;
+                            this.errorMessage = errorData.detail || 'Credenciales inválidas';
+                        }
+                    } catch (err) {
+                        this.error = true;
+                        this.errorMessage = 'Error de conexión. Verifica tu red.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                
+                async handleRegister() {
+                    this.loading = true;
+                    this.error = false;
+                    
+                    try {
+                        const response = await fetch('/api/auth/register', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                email: this.email,
+                                password: this.password,
+                                nombre_completo: this.nombreCompleto
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            localStorage.setItem('access_token', data.access_token);
+                            localStorage.setItem('user_email', data.email);
+                            localStorage.setItem('user_id', data.user_id);
+                            
+                            this.success = true;
+                            this.successMessage = '¡Cuenta creada exitosamente! Redirigiendo...';
+                            
+                            setTimeout(() => {
+                                window.location.href = '/dashboard';
+                            }, 1000);
+                        } else {
+                            const errorData = await response.json();
+                            this.error = true;
+                            this.errorMessage = errorData.detail || 'Error al crear cuenta';
+                        }
+                    } catch (err) {
+                        this.error = true;
+                        this.errorMessage = 'Error de conexión. Verifica tu red.';
+                    } finally {
+                        this.loading = false;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
