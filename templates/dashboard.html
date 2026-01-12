@@ -479,7 +479,7 @@
         <div x-show="currentView === 'monthly'" class="slide-in">
             <div class="flex justify-between items-center mb-4">
                 <h1 class="text-3xl font-bold"><i class="fas fa-calendar-alt text-primary"></i> Plan Mensual</h1>
-                <button class="btn btn-primary" @click="showNewMonthlyPlanModal = true">
+                <button class="btn btn-primary" @click="createNewPlan()">
                     <i class="fas fa-plus"></i> Nuevo Plan
                 </button>
             </div>
@@ -812,14 +812,48 @@
                         <label class="label">
                             <span class="label-text">Logros de la semana 🏆</span>
                         </label>
-                        <textarea x-model="weeklyLog.logros" class="textarea textarea-bordered" placeholder="¿Qué logré esta semana?" rows="3"></textarea>
+                        <div class="flex gap-2 mb-2">
+                            <input type="text" x-model="newLogro" @keyup.enter="addLogro()"
+                                   class="input input-bordered flex-1" placeholder="Agregar logro..." />
+                            <button type="button" class="btn btn-primary" @click="addLogro()">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="space-y-1">
+                            <template x-for="(logro, index) in weeklyLog.logros" :key="index">
+                                <div class="flex items-center gap-2 bg-base-200 p-2 rounded">
+                                    <i class="fas fa-check-circle text-success"></i>
+                                    <span class="flex-1" x-text="logro"></span>
+                                    <button type="button" class="btn btn-ghost btn-xs" @click="removeLogro(index)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
                     </div>
 
                     <div class="form-control">
                         <label class="label">
                             <span class="label-text">Desafíos enfrentados 💪</span>
                         </label>
-                        <textarea x-model="weeklyLog.dificultades" class="textarea textarea-bordered" placeholder="Obstáculos y cómo los superé..." rows="3"></textarea>
+                        <div class="flex gap-2 mb-2">
+                            <input type="text" x-model="newDesafio" @keyup.enter="addDesafio()"
+                                   class="input input-bordered flex-1" placeholder="Agregar desafío..." />
+                            <button type="button" class="btn btn-primary" @click="addDesafio()">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="space-y-1">
+                            <template x-for="(desafio, index) in weeklyLog.desafios" :key="index">
+                                <div class="flex items-center gap-2 bg-base-200 p-2 rounded">
+                                    <i class="fas fa-exclamation-triangle text-warning"></i>
+                                    <span class="flex-1" x-text="desafio"></span>
+                                    <button type="button" class="btn btn-ghost btn-xs" @click="removeDesafio(index)">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
                     </div>
 
                     <div class="form-control">
@@ -845,9 +879,9 @@
                         </div>
                         <div class="form-control">
                             <label class="label">
-                                <span class="label-text">Satisfacción: <span x-text="weeklyLog.satisfaccion"></span>/5 😊</span>
+                                <span class="label-text">Satisfacción: <span x-text="weeklyLog.nivel_satisfaccion"></span>/5 😊</span>
                             </label>
-                            <input type="range" x-model.number="weeklyLog.satisfaccion" min="1" max="5" class="range range-success" step="1" />
+                            <input type="range" x-model.number="weeklyLog.nivel_satisfaccion" min="1" max="5" class="range range-success" step="1" />
                         </div>
                     </div>
 
@@ -1317,6 +1351,11 @@
                 competenciasEvolution: {},
                 planComparison: null,
 
+                // Estados para modo visualización/edición
+                isEditMode: false,
+                isCreatingNewPlan: false,
+                viewingPlanId: null,
+
                 newCompetencia: {
                     nombre: '',
                     progreso_inicio: 0,
@@ -1339,15 +1378,15 @@
                 weeklyLog: {
                     semana_inicio: new Date().toISOString().split('T')[0],
                     semana_fin: new Date().toISOString().split('T')[0],
-                    actividades_realizadas: '',
-                    logros: '',
-                    dificultades: '',
+                    logros: [],
+                    desafios: [],
                     aprendizajes: '',
                     reflexiones: '',
                     nivel_energia: 3,
-                    satisfaccion: 3,
-                    proximos_pasos: ''
+                    nivel_satisfaccion: 3
                 },
+                newLogro: '',
+                newDesafio: '',
 
                 // Inicialización
                 async init() {
@@ -1674,6 +1713,36 @@
                     }
                 },
 
+                createNewPlan() {
+                    // Limpiar formularios
+                    this.monthlyPlan = {
+                        mes: new Date().toISOString().split('T')[0],
+                        competencias_trabajar: '',
+                        competencias: [],
+                        que_quiero_lograr: '',
+                        mis_fortalezas: '',
+                        mis_debilidades: ''
+                    };
+
+                    this.monthlyReview = {
+                        que_mejore: '',
+                        que_falta_mejorar: '',
+                        habilidades_desarrolladas: '',
+                        momento_memorable: ''
+                    };
+
+                    // Activar modo edición
+                    this.isEditMode = true;
+                    this.isCreatingNewPlan = true;
+                    this.viewingPlanId = null;
+                    this.currentPlanId = null;
+
+                    // Cambiar a pestaña Gestión
+                    this.monthlyView = 'gestion';
+
+                    this.showNotification('Creando nuevo plan mensual', 'info');
+                },
+
                 async saveMonthlyPlan() {
                     try {
                         const response = await this.apiCall('/api/monthly/plans', 'POST', this.monthlyPlan);
@@ -1786,19 +1855,47 @@
                             this.weeklyLog = {
                                 semana_inicio: new Date().toISOString().split('T')[0],
                                 semana_fin: new Date().toISOString().split('T')[0],
-                                actividades_realizadas: '',
-                                logros: '',
-                                dificultades: '',
+                                logros: [],
+                                desafios: [],
                                 aprendizajes: '',
                                 reflexiones: '',
                                 nivel_energia: 3,
-                                satisfaccion: 3,
-                                proximos_pasos: ''
+                                nivel_satisfaccion: 3
                             };
+                            this.newLogro = '';
+                            this.newDesafio = '';
                         }
                     } catch (error) {
                         this.showNotification('Error al guardar bitácora: ' + error.message, 'error');
                     }
+                },
+
+                addLogro() {
+                    if (this.newLogro && this.newLogro.trim()) {
+                        if (!Array.isArray(this.weeklyLog.logros)) {
+                            this.weeklyLog.logros = [];
+                        }
+                        this.weeklyLog.logros.push(this.newLogro.trim());
+                        this.newLogro = '';
+                    }
+                },
+
+                removeLogro(index) {
+                    this.weeklyLog.logros.splice(index, 1);
+                },
+
+                addDesafio() {
+                    if (this.newDesafio && this.newDesafio.trim()) {
+                        if (!Array.isArray(this.weeklyLog.desafios)) {
+                            this.weeklyLog.desafios = [];
+                        }
+                        this.weeklyLog.desafios.push(this.newDesafio.trim());
+                        this.newDesafio = '';
+                    }
+                },
+
+                removeDesafio(index) {
+                    this.weeklyLog.desafios.splice(index, 1);
                 },
 
                 // UI Functions
