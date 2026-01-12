@@ -262,13 +262,62 @@
                             <i class="fas fa-info-circle"></i>
                             <span>No hay tareas creadas. Haz clic en "Nueva Tarea" para comenzar.</span>
                         </div>
+                        <!-- Filtros de Tareas -->
+                        <div class="card bg-base-200 p-4 mb-4" x-show="tasks.length > 0">
+                            <div class="flex flex-wrap gap-3 items-end">
+                                <div class="form-control flex-1 min-w-[150px]">
+                                    <label class="label py-1">
+                                        <span class="label-text text-xs font-semibold">Estado</span>
+                                    </label>
+                                    <select x-model="filterEstado" class="select select-bordered select-sm">
+                                        <option value="">Todos</option>
+                                        <option value="pendiente">Pendiente</option>
+                                        <option value="en_progreso">En Progreso</option>
+                                        <option value="completada">Completada</option>
+                                        <option value="cancelada">Cancelada</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-control flex-1 min-w-[150px]">
+                                    <label class="label py-1">
+                                        <span class="label-text text-xs font-semibold">Prioridad</span>
+                                    </label>
+                                    <select x-model="filterPrioridad" class="select select-bordered select-sm">
+                                        <option value="">Todas</option>
+                                        <option value="alta">Alta</option>
+                                        <option value="media">Media</option>
+                                        <option value="baja">Baja</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-control flex-1 min-w-[150px]">
+                                    <label class="label py-1">
+                                        <span class="label-text text-xs font-semibold">Categoría</span>
+                                    </label>
+                                    <select x-model="filterCategoria" class="select select-bordered select-sm">
+                                        <option value="">Todas</option>
+                                        <template x-for="categoria in userConfig.categorias" :key="categoria">
+                                            <option :value="categoria" x-text="categoria"></option>
+                                        </template>
+                                    </select>
+                                </div>
+
+                                <button class="btn btn-sm btn-ghost gap-2"
+                                        @click="clearFilters()"
+                                        x-show="filterEstado || filterPrioridad || filterCategoria">
+                                    <i class="fas fa-times"></i>
+                                    Limpiar Filtros
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="flex justify-between items-center mb-4" x-show="tasks.length > 0">
                             <div class="alert alert-success text-sm flex-1 mr-2">
                                 <i class="fas fa-tasks"></i>
                                 <span>
-                                    Mostrando <b x-text="tasks.length"></b> tareas totales
-                                    (<span x-text="tasks.filter(t => !t.parent_task_id).length"></span> principales +
-                                    <span x-text="tasks.filter(t => t.parent_task_id).length"></span> subtareas)
+                                    Mostrando <b x-text="filteredTasks.length"></b> de <b x-text="tasks.length"></b> tareas
+                                    (<span x-text="filteredTasks.filter(t => !t.parent_task_id).length"></span> principales +
+                                    <span x-text="filteredTasks.filter(t => t.parent_task_id).length"></span> subtareas)
                                 </span>
                             </div>
                             <button class="btn btn-sm" @click="showSubtasks = !showSubtasks"
@@ -293,7 +342,7 @@
                                 </thead>
                                 <tbody>
                                     <!-- Mostrar todas las tareas con jerarquía visual -->
-                                    <template x-for="task in tasks" :key="task.id">
+                                    <template x-for="task in filteredTasks" :key="task.id">
                                         <tr x-show="!task.parent_task_id || showSubtasks"
                                             :class="{'bg-base-200': task.es_macrotarea && !task.parent_task_id, 'hover': task.parent_task_id}">
                                             <td>
@@ -360,9 +409,46 @@
             </div>
             
             <!-- Kanban View -->
-            <div x-show="taskView === 'kanban'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Pendientes Column -->
-                <div class="card bg-base-100 shadow-lg">
+            <div x-show="taskView === 'kanban'">
+                <!-- Filtros de Tareas -->
+                <div class="card bg-base-200 p-4 mb-4" x-show="tasks.length > 0">
+                    <div class="flex flex-wrap gap-3 items-center">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-filter text-sm opacity-70"></i>
+                            <span class="text-xs font-semibold opacity-70">Filtros:</span>
+                        </div>
+
+                        <div class="form-control">
+                            <select x-model="filterPrioridad" class="select select-bordered select-sm">
+                                <option value="">Todas las Prioridades</option>
+                                <option value="alta">Alta</option>
+                                <option value="media">Media</option>
+                                <option value="baja">Baja</option>
+                            </select>
+                        </div>
+
+                        <div class="form-control">
+                            <select x-model="filterCategoria" class="select select-bordered select-sm">
+                                <option value="">Todas las Categorías</option>
+                                <template x-for="categoria in userConfig.categorias" :key="categoria">
+                                    <option :value="categoria" x-text="categoria"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-sm btn-ghost gap-2"
+                                @click="clearFilters()"
+                                x-show="filterPrioridad || filterCategoria">
+                            <i class="fas fa-times"></i>
+                            Limpiar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Kanban Columns Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Pendientes Column -->
+                    <div class="card bg-base-100 shadow-lg">
                     <div class="card-body">
                         <h3 class="card-title text-warning">
                             <i class="fas fa-clock"></i> Pendientes
@@ -486,9 +572,10 @@
                         </div>
                     </div>
                 </div>
-            </div>
+                </div><!-- Close grid -->
+            </div><!-- Close kanban view -->
         </div>
-        
+
         <!-- MONTHLY VIEW -->
         <div x-show="currentView === 'monthly'" class="slide-in">
             <div class="flex justify-between items-center mb-4">
@@ -2060,7 +2147,12 @@
                 toastMessage: '',
                 toastType: 'success',
                 showSubtasks: true,
-                
+
+                // Filtros de tareas
+                filterEstado: '',
+                filterPrioridad: '',
+                filterCategoria: '',
+
                 // Datos
                 stats: {
                     totalTasks: 0,
@@ -2410,7 +2502,7 @@
                 },
 
                 getTasksByStatus(status) {
-                    return this.tasks.filter(task => task.estado === status);
+                    return this.filteredTasks.filter(task => task.estado === status);
                 },
                 
                 // Drag and Drop Handlers
@@ -3495,6 +3587,34 @@
                         style: 'currency',
                         currency: 'MXN'
                     }).format(amount || 0);
+                },
+
+                // Filtros de tareas
+                get filteredTasks() {
+                    let filtered = this.tasks;
+
+                    // Filtrar por estado
+                    if (this.filterEstado) {
+                        filtered = filtered.filter(t => t.estado === this.filterEstado);
+                    }
+
+                    // Filtrar por prioridad
+                    if (this.filterPrioridad) {
+                        filtered = filtered.filter(t => t.prioridad === this.filterPrioridad);
+                    }
+
+                    // Filtrar por categoría
+                    if (this.filterCategoria) {
+                        filtered = filtered.filter(t => t.categoria === this.filterCategoria);
+                    }
+
+                    return filtered;
+                },
+
+                clearFilters() {
+                    this.filterEstado = '';
+                    this.filterPrioridad = '';
+                    this.filterCategoria = '';
                 }
             }
         }
