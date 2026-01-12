@@ -730,6 +730,56 @@
                                                 <i class="fas fa-sticky-note"></i>
                                                 <span x-text="competencia.notas"></span>
                                             </div>
+
+                                            <!-- Actividades Section -->
+                                            <div class="mt-3 border-t pt-3">
+                                                <div class="flex justify-between items-center mb-2">
+                                                    <span class="text-xs font-semibold">
+                                                        <i class="fas fa-tasks"></i> Actividades
+                                                        <span class="badge badge-sm" x-text="(competencia.actividades || []).length"></span>
+                                                    </span>
+                                                </div>
+
+                                                <!-- Input para agregar -->
+                                                <div class="flex gap-2 mb-2" x-show="isEditMode || isCreatingNewPlan">
+                                                    <input type="text"
+                                                           x-model="newActividad"
+                                                           @keyup.enter="addActividadToCompetencia(index)"
+                                                           class="input input-bordered input-xs flex-1"
+                                                           placeholder="Nueva actividad..." />
+                                                    <button type="button"
+                                                            class="btn btn-primary btn-xs"
+                                                            @click="addActividadToCompetencia(index)">
+                                                        <i class="fas fa-plus"></i>
+                                                    </button>
+                                                </div>
+
+                                                <!-- Lista de actividades -->
+                                                <div class="space-y-1">
+                                                    <template x-for="(actividad, actIndex) in (competencia.actividades || [])" :key="actIndex">
+                                                        <div class="flex items-start gap-2 text-xs bg-base-100 p-2 rounded">
+                                                            <input type="checkbox"
+                                                                   :checked="actividad.completada"
+                                                                   @change="toggleActividadCompletada(index, actIndex)"
+                                                                   :disabled="!isEditMode && !isCreatingNewPlan"
+                                                                   class="checkbox checkbox-xs checkbox-success mt-0.5" />
+                                                            <span class="flex-1"
+                                                                  :class="actividad.completada ? 'line-through opacity-60' : ''"
+                                                                  x-text="actividad.texto"></span>
+                                                            <button type="button"
+                                                                    class="btn btn-ghost btn-xs text-error"
+                                                                    @click="removeActividad(index, actIndex)"
+                                                                    x-show="isEditMode || isCreatingNewPlan">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </template>
+                                                    <div x-show="!competencia.actividades || competencia.actividades.length === 0"
+                                                         class="text-xs text-center opacity-50 py-2">
+                                                        No hay actividades definidas
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </template>
@@ -1381,8 +1431,10 @@
                     progreso_inicio: 0,
                     progreso_actual: 0,
                     progreso_fin: null,
-                    notas: ''
+                    notas: '',
+                    actividades: []
                 },
+                newActividad: '',
 
                 monthlyReview: {
                     que_mejore: '',
@@ -1882,7 +1934,8 @@
                         progreso_inicio: 0,
                         progreso_actual: 0,
                         progreso_fin: null,
-                        notas: ''
+                        notas: '',
+                        actividades: []
                     };
 
                     this.showNotification('Competencia agregada', 'success');
@@ -1907,6 +1960,60 @@
                         } catch (error) {
                             console.error('Error updating competencia:', error);
                         }
+                    }
+                },
+
+                addActividadToCompetencia(competenciaIndex) {
+                    if (!this.newActividad || !this.newActividad.trim()) return;
+
+                    const competencia = this.monthlyPlan.competencias[competenciaIndex];
+
+                    if (!competencia.actividades) {
+                        competencia.actividades = [];
+                    }
+
+                    competencia.actividades.push({
+                        texto: this.newActividad.trim(),
+                        completada: false,
+                        fecha_creacion: new Date().toISOString().split('T')[0]
+                    });
+
+                    this.newActividad = '';
+
+                    if (this.currentPlanId) {
+                        this.saveCompetencias();
+                    }
+                },
+
+                toggleActividadCompletada(competenciaIndex, actividadIndex) {
+                    const actividad = this.monthlyPlan.competencias[competenciaIndex].actividades[actividadIndex];
+                    actividad.completada = !actividad.completada;
+
+                    if (this.currentPlanId) {
+                        this.saveCompetencias();
+                    }
+                },
+
+                removeActividad(competenciaIndex, actividadIndex) {
+                    this.monthlyPlan.competencias[competenciaIndex].actividades.splice(actividadIndex, 1);
+
+                    if (this.currentPlanId) {
+                        this.saveCompetencias();
+                    }
+                },
+
+                async saveCompetencias() {
+                    if (!this.currentPlanId) return;
+
+                    try {
+                        await this.apiCall(
+                            `/api/monthly/plans/${this.currentPlanId}/competencias`,
+                            'PUT',
+                            this.monthlyPlan.competencias
+                        );
+                        this.showNotification('Competencias actualizadas', 'success');
+                    } catch (error) {
+                        this.showNotification('Error: ' + error.message, 'error');
                     }
                 },
 
