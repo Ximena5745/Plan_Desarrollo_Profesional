@@ -223,7 +223,7 @@
                                     <tr>
                                         <td x-text="task.titulo"></td>
                                         <td><span class="badge badge-outline" x-text="task.categoria"></span></td>
-                                        <td><span class="badge" :class="getStatusBadgeClass(task.estado)" x-text="task.estado"></span></td>
+                                        <td><span class="badge" :class="getStatusBadgeClass(task.estado)" x-text="capitalize(task.estado)"></span></td>
                                         <td x-text="formatDate(task.fecha_inicio || task.fecha)"></td>
                                     </tr>
                                 </template>
@@ -305,7 +305,10 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="badge badge-sm" :class="task.parent_task_id ? 'badge-ghost' : 'badge-outline'" x-text="task.clasificacion || 'N/A'"></span>
+                                                <span class="badge badge-sm whitespace-normal text-left"
+                                                      :class="task.parent_task_id ? 'badge-ghost' : 'badge-outline'"
+                                                      :title="task.clasificacion"
+                                                      x-text="task.clasificacion || 'N/A'"></span>
                                             </td>
                                             <td>
                                                 <div class="flex items-center gap-2">
@@ -314,7 +317,7 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="badge badge-sm" :class="[getStatusBadgeClass(task.estado), task.parent_task_id ? 'badge-ghost' : '']" x-text="task.estado"></span>
+                                                <span class="badge badge-sm" :class="[getStatusBadgeClass(task.estado), task.parent_task_id ? 'badge-ghost' : '']" x-text="capitalize(task.estado)"></span>
                                             </td>
                                             <td>
                                                 <div class="text-xs">
@@ -327,7 +330,7 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="badge badge-sm" :class="[getPriorityBadgeClass(task.prioridad), task.parent_task_id ? 'badge-ghost' : '']" x-text="task.prioridad"></span>
+                                                <span class="badge badge-sm" :class="[getPriorityBadgeClass(task.prioridad), task.parent_task_id ? 'badge-ghost' : '']" x-text="capitalize(task.prioridad)"></span>
                                             </td>
                                             <td>
                                                 <div class="flex gap-1">
@@ -383,7 +386,7 @@
                                         <p class="text-sm opacity-70" x-text="task.descripcion"></p>
                                         <div class="flex justify-between items-center mt-2">
                                             <span class="badge badge-sm" x-text="task.categoria"></span>
-                                            <span class="badge badge-sm" :class="getPriorityBadgeClass(task.prioridad)" x-text="task.prioridad"></span>
+                                            <span class="badge badge-sm" :class="getPriorityBadgeClass(task.prioridad)" x-text="capitalize(task.prioridad)"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -425,7 +428,7 @@
                                         <p class="text-sm opacity-70" x-text="task.descripcion"></p>
                                         <div class="flex justify-between items-center mt-2">
                                             <span class="badge badge-sm" x-text="task.categoria"></span>
-                                            <span class="badge badge-sm" :class="getPriorityBadgeClass(task.prioridad)" x-text="task.prioridad"></span>
+                                            <span class="badge badge-sm" :class="getPriorityBadgeClass(task.prioridad)" x-text="capitalize(task.prioridad)"></span>
                                         </div>
                                     </div>
                                 </div>
@@ -496,7 +499,7 @@
                         </label>
                         <select x-model="currentPlanId" @change="loadExistingPlan(currentPlanId)" class="select select-bordered flex-1">
                             <template x-for="plan in monthlyPlans" :key="plan.id">
-                                <option :value="plan.id" x-text="formatDate(plan.mes)"></option>
+                                <option :value="plan.id" x-text="formatMonth(plan.mes)"></option>
                             </template>
                         </select>
                         <div class="stats shadow" x-show="planComparison">
@@ -540,7 +543,7 @@
                                 <label class="label">
                                     <span class="label-text">Mes</span>
                                 </label>
-                                <input type="date"
+                                <input type="month"
                                        x-model="monthlyPlan.mes"
                                        @change="checkMonthAvailability()"
                                        class="input input-bordered"
@@ -565,6 +568,57 @@
                                 </label>
                                 <textarea x-model="monthlyPlan.que_quiero_lograr" class="textarea textarea-bordered" placeholder="Mis objetivos del mes..." rows="4" :disabled="!isEditMode"></textarea>
                             </div>
+
+                            <!-- Actividades para Lograrlo -->
+                            <div class="card bg-base-200 p-4">
+                                <div class="flex justify-between items-center mb-3">
+                                    <label class="label">
+                                        <span class="label-text font-semibold"><i class="fas fa-list-check"></i> Actividades para Lograrlo</span>
+                                        <span class="badge badge-sm ml-2" x-text="(monthlyPlan.actividades_lograr || []).length"></span>
+                                    </label>
+                                </div>
+
+                                <!-- Input para agregar nueva actividad -->
+                                <div class="flex gap-2 mb-3" x-show="isEditMode || isCreatingNewPlan">
+                                    <input type="text"
+                                           x-model="newActividadLograr"
+                                           @keyup.enter="addActividadLograr()"
+                                           class="input input-bordered input-sm flex-1"
+                                           placeholder="Nueva actividad..." />
+                                    <button type="button"
+                                            class="btn btn-primary btn-sm"
+                                            @click="addActividadLograr()">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Lista de actividades -->
+                                <div class="space-y-2">
+                                    <template x-for="(actividad, index) in (monthlyPlan.actividades_lograr || [])" :key="index">
+                                        <div class="flex items-start gap-2 bg-base-100 p-2 rounded">
+                                            <input type="checkbox"
+                                                   :checked="actividad.completada"
+                                                   @change="toggleActividadLograr(index)"
+                                                   :disabled="!isEditMode && !isCreatingNewPlan"
+                                                   class="checkbox checkbox-sm checkbox-success mt-0.5" />
+                                            <span class="flex-1 text-sm"
+                                                  :class="actividad.completada ? 'line-through opacity-60' : ''"
+                                                  x-text="actividad.texto"></span>
+                                            <button type="button"
+                                                    class="btn btn-ghost btn-xs text-error"
+                                                    @click="removeActividadLograr(index)"
+                                                    x-show="isEditMode || isCreatingNewPlan">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <div x-show="!monthlyPlan.actividades_lograr || monthlyPlan.actividades_lograr.length === 0"
+                                         class="text-center text-sm opacity-50 py-2">
+                                        No hay actividades agregadas
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="form-control">
                                     <label class="label">
@@ -990,26 +1044,61 @@
                                         <p class="text-sm opacity-70 mt-2" x-text="log.reflexiones"></p>
                                     </div>
                                     <div class="flex gap-2">
-                                        <button class="btn btn-ghost btn-sm"><i class="fas fa-eye"></i></button>
-                                        <button class="btn btn-ghost btn-sm"><i class="fas fa-edit"></i></button>
+                                        <button class="btn btn-ghost btn-sm" @click="viewWeeklyLog(log)" title="Ver detalles">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-ghost btn-sm" @click="editWeeklyLog(log)" title="Editar">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
                                     </div>
                                 </div>
                                 <div class="divider"></div>
-                                <div class="grid grid-cols-2 gap-2 text-sm">
-                                    <div>
-                                        <span class="font-semibold">Energía:</span>
-                                        <div class="rating rating-sm">
-                                            <template x-for="i in 5">
-                                                <input type="radio" class="mask mask-star-2 bg-orange-400" :checked="i <= log.nivel_energia" disabled />
+
+                                <!-- Vista resumida -->
+                                <div class="space-y-3">
+                                    <!-- Logros -->
+                                    <div x-show="log.logros && log.logros.length > 0">
+                                        <span class="font-semibold text-sm"><i class="fas fa-trophy text-warning"></i> Logros:</span>
+                                        <ul class="list-disc list-inside text-sm ml-4">
+                                            <template x-for="logro in (log.logros || []).slice(0, 2)" :key="logro">
+                                                <li x-text="logro"></li>
                                             </template>
-                                        </div>
+                                            <li x-show="log.logros && log.logros.length > 2" class="opacity-60">
+                                                + <span x-text="log.logros.length - 2"></span> más...
+                                            </li>
+                                        </ul>
                                     </div>
-                                    <div>
-                                        <span class="font-semibold">Satisfacción:</span>
-                                        <div class="rating rating-sm">
-                                            <template x-for="i in 5">
-                                                <input type="radio" class="mask mask-star-2 bg-green-400" :checked="i <= log.nivel_satisfaccion" disabled />
+
+                                    <!-- Desafíos -->
+                                    <div x-show="log.desafios && log.desafios.length > 0">
+                                        <span class="font-semibold text-sm"><i class="fas fa-mountain text-error"></i> Desafíos:</span>
+                                        <ul class="list-disc list-inside text-sm ml-4">
+                                            <template x-for="desafio in (log.desafios || []).slice(0, 2)" :key="desafio">
+                                                <li x-text="desafio"></li>
                                             </template>
+                                            <li x-show="log.desafios && log.desafios.length > 2" class="opacity-60">
+                                                + <span x-text="log.desafios.length - 2"></span> más...
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    <!-- Niveles -->
+                                    <div class="grid grid-cols-2 gap-2 text-sm">
+                                        <div>
+                                            <span class="font-semibold">Energía:</span>
+                                            <div class="rating rating-sm">
+                                                <template x-for="i in 5" :key="i">
+                                                    <input type="radio" class="mask mask-star-2 bg-orange-400" :checked="i <= log.nivel_energia" disabled />
+                                                </template>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span class="font-semibold">Satisfacción:</span>
+                                            <div class="rating rating-sm">
+                                                <template x-for="i in 5" :key="i">
+                                                    <input type="radio" class="mask mask-star-2 bg-green-400" :checked="i <= log.nivel_satisfaccion" disabled />
+                                                </template>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1753,11 +1842,15 @@
                 showEditTaskModal: false,
                 showNewMonthlyPlanModal: false,
                 showNewWeeklyLogModal: false,
+                showViewWeeklyLogModal: false,
+                showEditWeeklyLogModal: false,
                 showAddClasificacion: false,
                 showAddCategoria: false,
 
                 // Tarea en edición
                 editingTask: null,
+                viewingWeeklyLog: null,
+                editingWeeklyLog: null,
 
                 // Configuración de usuario
                 userConfig: {
@@ -1785,13 +1878,15 @@
                 },
 
                 monthlyPlan: {
-                    mes: new Date().toISOString().split('T')[0],
+                    mes: new Date().toISOString().substring(0, 7), // YYYY-MM
                     competencias_trabajar: '',
                     competencias: [],
                     que_quiero_lograr: '',
+                    actividades_lograr: [],
                     mis_fortalezas: '',
                     mis_debilidades: ''
                 },
+                newActividadLograr: '',
 
                 currentPlanId: null,
                 monthlyPlans: [],
@@ -2001,9 +2096,48 @@
                 // Funciones de utilidad
                 formatDate(dateString) {
                     if (!dateString) return '';
-                    return new Date(dateString).toLocaleDateString('es-ES');
+                    // Evitar problemas de timezone - parsear fecha como local
+                    const parts = dateString.split('-');
+                    if (parts.length >= 3) {
+                        const year = parseInt(parts[0]);
+                        const month = parseInt(parts[1]) - 1; // Meses en JS son 0-indexed
+                        const day = parseInt(parts[2].split('T')[0]); // Remover tiempo si existe
+                        const date = new Date(year, month, day);
+                        return date.toLocaleDateString('es-ES');
+                    }
+                    return dateString;
                 },
-                
+
+                capitalize(str) {
+                    if (!str) return '';
+                    // Reemplazar guiones bajos con espacios y capitalizar
+                    return str.replace(/_/g, ' ').split(' ').map(word =>
+                        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                    ).join(' ');
+                },
+
+                formatMonth(dateString) {
+                    if (!dateString) return '';
+                    const date = new Date(dateString + '-01'); // Agregar día para parsear correctamente
+                    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+                },
+
+                // Convertir fecha sin timezone offset
+                toLocalISODate(dateInput) {
+                    if (!dateInput) return null;
+                    // Si es string en formato YYYY-MM-DD o YYYY-MM, retornar directamente
+                    if (typeof dateInput === 'string') {
+                        return dateInput;
+                    }
+                    // Si es Date object, extraer fecha local
+                    const date = new Date(dateInput);
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                },
+
                 getStatusBadgeClass(status) {
                     const classes = {
                         'pendiente': 'badge-warning',
@@ -2188,6 +2322,7 @@
                                 competencias_trabajar: plan.competencias_trabajar || '',
                                 competencias: plan.competencias || [],
                                 que_quiero_lograr: plan.que_quiero_lograr || '',
+                                actividades_lograr: plan.actividades_lograr || [],
                                 mis_fortalezas: plan.mis_fortalezas || '',
                                 mis_debilidades: plan.mis_debilidades || ''
                             };
@@ -2238,6 +2373,7 @@
                         competencias_trabajar: '',
                         competencias: [],
                         que_quiero_lograr: '',
+                        actividades_lograr: [],
                         mis_fortalezas: '',
                         mis_debilidades: ''
                     };
@@ -2451,6 +2587,32 @@
                     }
                 },
 
+                // Actividades del Plan Mensual
+                addActividadLograr() {
+                    if (!this.newActividadLograr || !this.newActividadLograr.trim()) return;
+
+                    if (!this.monthlyPlan.actividades_lograr) {
+                        this.monthlyPlan.actividades_lograr = [];
+                    }
+
+                    this.monthlyPlan.actividades_lograr.push({
+                        texto: this.newActividadLograr.trim(),
+                        completada: false,
+                        fecha_creacion: new Date().toISOString().split('T')[0]
+                    });
+
+                    this.newActividadLograr = '';
+                },
+
+                toggleActividadLograr(index) {
+                    const actividad = this.monthlyPlan.actividades_lograr[index];
+                    actividad.completada = !actividad.completada;
+                },
+
+                removeActividadLograr(index) {
+                    this.monthlyPlan.actividades_lograr.splice(index, 1);
+                },
+
                 async saveMonthlyReview() {
                     try {
                         // Necesitamos el ID del plan mensual actual
@@ -2537,6 +2699,58 @@
 
                 removeDesafio(index) {
                     this.weeklyLog.desafios.splice(index, 1);
+                },
+
+                viewWeeklyLog(log) {
+                    this.viewingWeeklyLog = { ...log };
+                    this.showViewWeeklyLogModal = true;
+                },
+
+                editWeeklyLog(log) {
+                    this.editingWeeklyLog = { ...log };
+                    this.showEditWeeklyLogModal = true;
+                },
+
+                async updateWeeklyLog() {
+                    try {
+                        if (!this.editingWeeklyLog || !this.editingWeeklyLog.id) return;
+
+                        await this.apiCall(`/api/weekly/logs/${this.editingWeeklyLog.id}`, 'PUT', this.editingWeeklyLog);
+                        this.showNotification('Bitácora actualizada', 'success');
+                        await this.loadWeeklyLogs();
+                        this.showEditWeeklyLogModal = false;
+                        this.editingWeeklyLog = null;
+                    } catch (error) {
+                        this.showNotification('Error: ' + error.message, 'error');
+                    }
+                },
+
+                addLogroEdit() {
+                    if (this.newLogro && this.newLogro.trim()) {
+                        if (!Array.isArray(this.editingWeeklyLog.logros)) {
+                            this.editingWeeklyLog.logros = [];
+                        }
+                        this.editingWeeklyLog.logros.push(this.newLogro.trim());
+                        this.newLogro = '';
+                    }
+                },
+
+                removeLogroEdit(index) {
+                    this.editingWeeklyLog.logros.splice(index, 1);
+                },
+
+                addDesafioEdit() {
+                    if (this.newDesafio && this.newDesafio.trim()) {
+                        if (!Array.isArray(this.editingWeeklyLog.desafios)) {
+                            this.editingWeeklyLog.desafios = [];
+                        }
+                        this.editingWeeklyLog.desafios.push(this.newDesafio.trim());
+                        this.newDesafio = '';
+                    }
+                },
+
+                removeDesafioEdit(index) {
+                    this.editingWeeklyLog.desafios.splice(index, 1);
                 },
 
                 // UI Functions
