@@ -14,7 +14,8 @@
     
     <!-- Chart.js para gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
@@ -220,7 +221,7 @@
                                         <td x-text="task.titulo"></td>
                                         <td><span class="badge badge-outline" x-text="task.categoria"></span></td>
                                         <td><span class="badge" :class="getStatusBadgeClass(task.estado)" x-text="task.estado"></span></td>
-                                        <td x-text="formatDate(task.fecha)"></td>
+                                        <td x-text="formatDate(task.fecha_inicio || task.fecha)"></td>
                                     </tr>
                                 </template>
                             </tbody>
@@ -253,41 +254,84 @@
             <div x-show="taskView === 'list'">
                 <div class="card bg-base-100 shadow-lg">
                     <div class="card-body">
+                        <!-- Info de tareas -->
+                        <div class="alert alert-info mb-4" x-show="tasks.length === 0">
+                            <i class="fas fa-info-circle"></i>
+                            <span>No hay tareas creadas. Haz clic en "Nueva Tarea" para comenzar.</span>
+                        </div>
+                        <div class="alert alert-success mb-4 text-sm" x-show="tasks.length > 0">
+                            <i class="fas fa-tasks"></i>
+                            <span>
+                                Mostrando <b x-text="tasks.length"></b> tareas totales
+                                (<span x-text="tasks.filter(t => !t.parent_task_id).length"></span> principales +
+                                <span x-text="tasks.filter(t => t.parent_task_id).length"></span> subtareas)
+                            </span>
+                        </div>
+
                         <div class="overflow-x-auto">
-                            <table class="table">
+                            <table class="table table-compact">
                                 <thead>
                                     <tr>
-                                        <th>
-                                            <input type="checkbox" class="checkbox" />
-                                        </th>
-                                        <th>Tarea</th>
-                                        <th>Categoría</th>
-                                        <th>Prioridad</th>
+                                        <th>Tarea / Proyecto</th>
+                                        <th>Clasificación</th>
+                                        <th>Progreso</th>
                                         <th>Estado</th>
-                                        <th>Fecha</th>
+                                        <th>Fechas</th>
+                                        <th>Prioridad</th>
                                         <th>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    <!-- Mostrar todas las tareas con jerarquía visual -->
                                     <template x-for="task in tasks" :key="task.id">
-                                        <tr>
+                                        <tr :class="{'bg-base-200': task.es_macrotarea && !task.parent_task_id, 'hover': task.parent_task_id}">
                                             <td>
-                                                <input type="checkbox" class="checkbox" :checked="task.estado === 'completada'" />
+                                                <div class="flex items-center gap-2" :class="{'pl-8': task.parent_task_id}">
+                                                    <!-- Icono de jerarquía para subtareas -->
+                                                    <template x-if="task.parent_task_id">
+                                                        <i class="fas fa-level-up-alt fa-rotate-90 text-xs opacity-40"></i>
+                                                    </template>
+
+                                                    <!-- Icono de tipo de tarea -->
+                                                    <i :class="task.es_macrotarea ? 'fas fa-folder text-warning' : (task.parent_task_id ? 'fas fa-tasks text-info' : 'fas fa-check-circle text-success')" class="text-sm"></i>
+
+                                                    <div>
+                                                        <div :class="task.parent_task_id ? 'font-semibold text-sm' : 'font-bold'" x-text="task.titulo"></div>
+                                                        <div :class="task.parent_task_id ? 'text-xs opacity-50' : 'text-xs opacity-60'" x-text="task.descripcion" x-show="task.descripcion"></div>
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td>
-                                                <div class="font-bold" x-text="task.titulo"></div>
-                                                <div class="text-sm opacity-50" x-text="task.descripcion"></div>
+                                                <span class="badge badge-sm" :class="task.parent_task_id ? 'badge-ghost' : 'badge-outline'" x-text="task.clasificacion || 'N/A'"></span>
                                             </td>
-                                            <td><span class="badge badge-outline" x-text="task.categoria"></span></td>
-                                            <td><span class="badge" :class="getPriorityBadgeClass(task.prioridad)" x-text="task.prioridad"></span></td>
-                                            <td><span class="badge" :class="getStatusBadgeClass(task.estado)" x-text="task.estado"></span></td>
-                                            <td x-text="formatDate(task.fecha)"></td>
                                             <td>
-                                                <div class="flex gap-2">
-                                                    <button class="btn btn-ghost btn-xs" @click="editTask(task)">
+                                                <div class="flex items-center gap-2">
+                                                    <progress class="progress" :class="task.parent_task_id ? 'progress-info w-12' : 'progress-primary w-16'" :value="task.progreso || 0" max="100"></progress>
+                                                    <span class="text-xs font-mono" x-text="(task.progreso || 0) + '%'"></span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-sm" :class="[getStatusBadgeClass(task.estado), task.parent_task_id ? 'badge-ghost' : '']" x-text="task.estado"></span>
+                                            </td>
+                                            <td>
+                                                <div class="text-xs">
+                                                    <div x-show="task.fecha_inicio && task.fecha_fin">
+                                                        <span x-text="formatDate(task.fecha_inicio)"></span> - <span x-text="formatDate(task.fecha_fin)"></span>
+                                                    </div>
+                                                    <div x-show="!task.fecha_inicio || !task.fecha_fin" class="text-gray-400">
+                                                        Sin fechas
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-sm" :class="[getPriorityBadgeClass(task.prioridad), task.parent_task_id ? 'badge-ghost' : '']" x-text="task.prioridad"></span>
+                                            </td>
+                                            <td>
+                                                <div class="flex gap-1">
+                                                    <button class="btn btn-ghost btn-xs" @click="editTask(task)" title="Editar">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn btn-ghost btn-xs text-error" @click="deleteTask(task.id)">
+                                                    <button class="btn btn-ghost btn-xs text-error" @click="deleteTask(task.id)" title="Eliminar">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 </div>
@@ -316,12 +360,23 @@
                              @dragenter.prevent="$event.target.classList.add('drag-over')"
                              @dragleave="$event.target.classList.remove('drag-over')">
                             <template x-for="task in getTasksByStatus('pendiente')" :key="task.id">
-                                <div class="card bg-base-200 shadow cursor-move" 
+                                <div class="card bg-base-200 shadow cursor-move"
                                      draggable="true"
                                      @dragstart="handleDragStart($event, task)"
                                      @dragend="handleDragEnd">
                                     <div class="card-body p-4">
-                                        <h4 class="font-bold" x-text="task.titulo"></h4>
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h4 class="font-bold flex-1" x-text="task.titulo"></h4>
+                                            <div class="dropdown dropdown-end">
+                                                <label tabindex="0" class="btn btn-ghost btn-xs">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </label>
+                                                <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-40">
+                                                    <li><a @click="editTask(task)"><i class="fas fa-edit"></i> Editar</a></li>
+                                                    <li><a @click="deleteTask(task.id)" class="text-error"><i class="fas fa-trash"></i> Eliminar</a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                         <p class="text-sm opacity-70" x-text="task.descripcion"></p>
                                         <div class="flex justify-between items-center mt-2">
                                             <span class="badge badge-sm" x-text="task.categoria"></span>
@@ -347,12 +402,23 @@
                              @dragenter.prevent="$event.target.classList.add('drag-over')"
                              @dragleave="$event.target.classList.remove('drag-over')">
                             <template x-for="task in getTasksByStatus('en_progreso')" :key="task.id">
-                                <div class="card bg-base-200 shadow cursor-move" 
+                                <div class="card bg-base-200 shadow cursor-move"
                                      draggable="true"
                                      @dragstart="handleDragStart($event, task)"
                                      @dragend="handleDragEnd">
                                     <div class="card-body p-4">
-                                        <h4 class="font-bold" x-text="task.titulo"></h4>
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h4 class="font-bold flex-1" x-text="task.titulo"></h4>
+                                            <div class="dropdown dropdown-end">
+                                                <label tabindex="0" class="btn btn-ghost btn-xs">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </label>
+                                                <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-40">
+                                                    <li><a @click="editTask(task)"><i class="fas fa-edit"></i> Editar</a></li>
+                                                    <li><a @click="deleteTask(task.id)" class="text-error"><i class="fas fa-trash"></i> Eliminar</a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                         <p class="text-sm opacity-70" x-text="task.descripcion"></p>
                                         <div class="flex justify-between items-center mt-2">
                                             <span class="badge badge-sm" x-text="task.categoria"></span>
@@ -378,12 +444,23 @@
                              @dragenter.prevent="$event.target.classList.add('drag-over')"
                              @dragleave="$event.target.classList.remove('drag-over')">
                             <template x-for="task in getTasksByStatus('completada')" :key="task.id">
-                                <div class="card bg-base-200 shadow cursor-move" 
+                                <div class="card bg-base-200 shadow cursor-move"
                                      draggable="true"
                                      @dragstart="handleDragStart($event, task)"
                                      @dragend="handleDragEnd">
                                     <div class="card-body p-4">
-                                        <h4 class="font-bold line-through" x-text="task.titulo"></h4>
+                                        <div class="flex justify-between items-start mb-2">
+                                            <h4 class="font-bold line-through flex-1" x-text="task.titulo"></h4>
+                                            <div class="dropdown dropdown-end">
+                                                <label tabindex="0" class="btn btn-ghost btn-xs">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </label>
+                                                <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-40">
+                                                    <li><a @click="editTask(task)"><i class="fas fa-edit"></i> Editar</a></li>
+                                                    <li><a @click="deleteTask(task.id)" class="text-error"><i class="fas fa-trash"></i> Eliminar</a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                         <p class="text-sm opacity-70" x-text="task.descripcion"></p>
                                         <div class="flex justify-between items-center mt-2">
                                             <span class="badge badge-sm" x-text="task.categoria"></span>
@@ -406,81 +483,300 @@
                     <i class="fas fa-plus"></i> Nuevo Plan
                 </button>
             </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Inicio de Mes -->
-                <div class="card bg-base-100 shadow-lg">
-                    <div class="card-body">
-                        <h2 class="card-title">
-                            <i class="fas fa-play-circle text-success"></i>
-                            Inicio de Mes
-                        </h2>
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">Competencias a Trabajar</span>
-                            </label>
-                            <textarea class="textarea textarea-bordered" placeholder="Comunicación, Liderazgo, etc." rows="3"></textarea>
-                        </div>
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">¿Qué quiero lograr?</span>
-                            </label>
-                            <textarea class="textarea textarea-bordered" placeholder="Mis objetivos del mes..." rows="4"></textarea>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">Mis Fortalezas 💪</span>
-                                </label>
-                                <textarea class="textarea textarea-bordered" rows="3"></textarea>
+
+            <!-- Selector de Plan Mensual -->
+            <div class="card bg-base-100 shadow-lg mb-6" x-show="monthlyPlans.length > 0">
+                <div class="card-body py-4">
+                    <div class="flex items-center gap-4">
+                        <label class="label">
+                            <span class="label-text font-semibold">Seleccionar Plan:</span>
+                        </label>
+                        <select x-model="currentPlanId" @change="loadPlanComparison(currentPlanId)" class="select select-bordered flex-1">
+                            <template x-for="plan in monthlyPlans" :key="plan.id">
+                                <option :value="plan.id" x-text="formatDate(plan.mes)"></option>
+                            </template>
+                        </select>
+                        <div class="stats shadow" x-show="planComparison">
+                            <div class="stat py-2 px-4">
+                                <div class="stat-title text-xs">Competencias</div>
+                                <div class="stat-value text-2xl" x-text="planComparison?.competencias_stats?.total || 0"></div>
                             </div>
-                            <div class="form-control">
-                                <label class="label">
-                                    <span class="label-text">Mis Debilidades 🎯</span>
-                                </label>
-                                <textarea class="textarea textarea-bordered" rows="3"></textarea>
+                            <div class="stat py-2 px-4">
+                                <div class="stat-title text-xs">Progreso Promedio</div>
+                                <div class="stat-value text-2xl" x-text="Math.round(planComparison?.competencias_stats?.promedio_progreso_fin || 0) + '%'"></div>
                             </div>
                         </div>
-                        <button class="btn btn-primary mt-4">
-                            <i class="fas fa-save"></i> Guardar Plan
-                        </button>
                     </div>
                 </div>
-                
-                <!-- Fin de Mes -->
-                <div class="card bg-base-100 shadow-lg">
-                    <div class="card-body">
-                        <h2 class="card-title">
-                            <i class="fas fa-flag-checkered text-error"></i>
-                            Fin de Mes - Evaluación
-                        </h2>
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">¿Qué mejoré? 📈</span>
-                            </label>
-                            <textarea class="textarea textarea-bordered" placeholder="Mis logros..." rows="3"></textarea>
+            </div>
+
+            <!-- Tabs de Secciones -->
+            <div class="tabs tabs-boxed mb-4 bg-base-100 shadow">
+                <a class="tab" :class="monthlyView === 'gestion' ? 'tab-active' : ''" @click="monthlyView = 'gestion'">
+                    <i class="fas fa-edit mr-2"></i> Gestión
+                </a>
+                <a class="tab" :class="monthlyView === 'competencias' ? 'tab-active' : ''" @click="monthlyView = 'competencias'">
+                    <i class="fas fa-chart-bar mr-2"></i> Competencias
+                </a>
+                <a class="tab" :class="monthlyView === 'analisis' ? 'tab-active' : ''" @click="monthlyView = 'analisis'">
+                    <i class="fas fa-chart-line mr-2"></i> Análisis
+                </a>
+            </div>
+
+            <!-- GESTIÓN: Inicio y Fin de Mes -->
+            <div x-show="monthlyView === 'gestion'">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Inicio de Mes -->
+                    <div class="card bg-base-100 shadow-lg">
+                        <div class="card-body">
+                            <h2 class="card-title">
+                                <i class="fas fa-play-circle text-success"></i>
+                                Inicio de Mes
+                            </h2>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Mes</span>
+                                </label>
+                                <input type="date" x-model="monthlyPlan.mes" class="input input-bordered" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Competencias a Trabajar</span>
+                                </label>
+                                <textarea x-model="monthlyPlan.competencias_trabajar" class="textarea textarea-bordered" placeholder="Comunicación, Liderazgo, etc." rows="3"></textarea>
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">¿Qué quiero lograr?</span>
+                                </label>
+                                <textarea x-model="monthlyPlan.que_quiero_lograr" class="textarea textarea-bordered" placeholder="Mis objetivos del mes..." rows="4"></textarea>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Mis Fortalezas 💪</span>
+                                    </label>
+                                    <textarea x-model="monthlyPlan.mis_fortalezas" class="textarea textarea-bordered" rows="3"></textarea>
+                                </div>
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Mis Debilidades 🎯</span>
+                                    </label>
+                                    <textarea x-model="monthlyPlan.mis_debilidades" class="textarea textarea-bordered" rows="3"></textarea>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary mt-4" @click="saveMonthlyPlan">
+                                <i class="fas fa-save"></i> Guardar Plan
+                            </button>
                         </div>
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">¿Qué me faltó mejorar? 🔍</span>
-                            </label>
-                            <textarea class="textarea textarea-bordered" rows="3"></textarea>
+                    </div>
+
+                    <!-- Fin de Mes -->
+                    <div class="card bg-base-100 shadow-lg">
+                        <div class="card-body">
+                            <h2 class="card-title">
+                                <i class="fas fa-flag-checkered text-error"></i>
+                                Fin de Mes - Evaluación
+                            </h2>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">¿Qué mejoré? 📈</span>
+                                </label>
+                                <textarea x-model="monthlyReview.que_mejore" class="textarea textarea-bordered" placeholder="Mis logros..." rows="3"></textarea>
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">¿Qué me faltó mejorar? 🔍</span>
+                                </label>
+                                <textarea x-model="monthlyReview.que_falta_mejorar" class="textarea textarea-bordered" rows="3"></textarea>
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Habilidades Desarrolladas ✨</span>
+                                </label>
+                                <input type="text" x-model="monthlyReview.habilidades_desarrolladas" class="input input-bordered" placeholder="Análisis de datos, Presentaciones..." />
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Momento Memorable 📸</span>
+                                </label>
+                                <textarea x-model="monthlyReview.momento_memorable" class="textarea textarea-bordered" rows="2"></textarea>
+                            </div>
+                            <button class="btn btn-secondary mt-4" @click="saveMonthlyReview">
+                                <i class="fas fa-check"></i> Guardar Evaluación
+                            </button>
                         </div>
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">Habilidades Desarrolladas ✨</span>
-                            </label>
-                            <input type="text" class="input input-bordered" placeholder="Análisis de datos, Presentaciones..." />
+                    </div>
+                </div>
+            </div>
+
+            <!-- COMPETENCIAS: Gestión de Competencias con Progreso -->
+            <div x-show="monthlyView === 'competencias'">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Agregar Nueva Competencia -->
+                    <div class="card bg-base-100 shadow-lg lg:col-span-1">
+                        <div class="card-body">
+                            <h3 class="card-title text-lg">
+                                <i class="fas fa-plus-circle text-primary"></i>
+                                Agregar Competencia
+                            </h3>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Nombre</span>
+                                </label>
+                                <input type="text" x-model="newCompetencia.nombre" class="input input-bordered input-sm" placeholder="Ej: Liderazgo" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Progreso Inicial: <span x-text="newCompetencia.progreso_inicio"></span>%</span>
+                                </label>
+                                <input type="range" x-model.number="newCompetencia.progreso_inicio" min="0" max="100" class="range range-primary range-sm" />
+                            </div>
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Notas</span>
+                                </label>
+                                <textarea x-model="newCompetencia.notas" class="textarea textarea-bordered textarea-sm" rows="2"></textarea>
+                            </div>
+                            <button class="btn btn-primary btn-sm mt-2" @click="addCompetencia">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
                         </div>
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">Momento Memorable 📸</span>
-                            </label>
-                            <textarea class="textarea textarea-bordered" rows="2"></textarea>
+                    </div>
+
+                    <!-- Lista de Competencias -->
+                    <div class="card bg-base-100 shadow-lg lg:col-span-2">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                <i class="fas fa-list text-info"></i>
+                                Competencias en Seguimiento
+                                <span class="badge badge-primary" x-text="monthlyPlan.competencias.length"></span>
+                            </h3>
+
+                            <div x-show="monthlyPlan.competencias.length === 0" class="alert alert-info">
+                                <i class="fas fa-info-circle"></i>
+                                <span>No hay competencias agregadas. Usa el formulario para agregar una.</span>
+                            </div>
+
+                            <div class="space-y-4">
+                                <template x-for="(competencia, index) in monthlyPlan.competencias" :key="index">
+                                    <div class="card bg-base-200 shadow">
+                                        <div class="card-body p-4">
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h4 class="font-bold" x-text="competencia.nombre"></h4>
+                                                <button class="btn btn-ghost btn-xs text-error" @click="removeCompetencia(index)">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+
+                                            <!-- Progreso Inicio -->
+                                            <div class="form-control">
+                                                <label class="label py-1">
+                                                    <span class="label-text text-xs">Inicio: <span x-text="competencia.progreso_inicio"></span>%</span>
+                                                </label>
+                                                <input type="range"
+                                                       :value="competencia.progreso_inicio"
+                                                       @input="updateCompetenciaProgress(index, 'progreso_inicio', parseInt($event.target.value))"
+                                                       min="0" max="100"
+                                                       class="range range-xs range-primary" />
+                                            </div>
+
+                                            <!-- Progreso Actual -->
+                                            <div class="form-control">
+                                                <label class="label py-1">
+                                                    <span class="label-text text-xs">Actual: <span x-text="competencia.progreso_actual"></span>%</span>
+                                                </label>
+                                                <input type="range"
+                                                       :value="competencia.progreso_actual"
+                                                       @input="updateCompetenciaProgress(index, 'progreso_actual', parseInt($event.target.value))"
+                                                       min="0" max="100"
+                                                       class="range range-xs range-success" />
+                                            </div>
+
+                                            <!-- Progreso Fin -->
+                                            <div class="form-control">
+                                                <label class="label py-1">
+                                                    <span class="label-text text-xs">Fin: <span x-text="competencia.progreso_fin || 'No definido'"></span><span x-show="competencia.progreso_fin">%</span></span>
+                                                </label>
+                                                <input type="range"
+                                                       :value="competencia.progreso_fin || 0"
+                                                       @input="updateCompetenciaProgress(index, 'progreso_fin', parseInt($event.target.value))"
+                                                       min="0" max="100"
+                                                       class="range range-xs range-secondary" />
+                                            </div>
+
+                                            <!-- Notas -->
+                                            <div class="text-xs mt-2 opacity-70" x-show="competencia.notas">
+                                                <i class="fas fa-sticky-note"></i>
+                                                <span x-text="competencia.notas"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
-                        <button class="btn btn-secondary mt-4">
-                            <i class="fas fa-check"></i> Guardar Evaluación
-                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ANÁLISIS: Gráficos y Comparaciones -->
+            <div x-show="monthlyView === 'analisis'">
+                <!-- Estadísticas de Comparación -->
+                <div class="stats shadow mb-6 w-full" x-show="planComparison">
+                    <div class="stat">
+                        <div class="stat-figure text-primary">
+                            <i class="fas fa-trophy text-3xl"></i>
+                        </div>
+                        <div class="stat-title">Total Competencias</div>
+                        <div class="stat-value text-primary" x-text="planComparison?.competencias_stats?.total || 0"></div>
+                        <div class="stat-desc" x-text="`${planComparison?.competencias_stats?.con_progreso || 0} con progreso final`"></div>
+                    </div>
+
+                    <div class="stat">
+                        <div class="stat-figure text-secondary">
+                            <i class="fas fa-chart-line text-3xl"></i>
+                        </div>
+                        <div class="stat-title">Progreso Inicial Promedio</div>
+                        <div class="stat-value text-secondary" x-text="Math.round(planComparison?.competencias_stats?.promedio_progreso_inicio || 0) + '%'"></div>
+                        <div class="stat-desc">Al comenzar el mes</div>
+                    </div>
+
+                    <div class="stat">
+                        <div class="stat-figure text-success">
+                            <i class="fas fa-check-circle text-3xl"></i>
+                        </div>
+                        <div class="stat-title">Progreso Final Promedio</div>
+                        <div class="stat-value text-success" x-text="Math.round(planComparison?.competencias_stats?.promedio_progreso_fin || 0) + '%'"></div>
+                        <div class="stat-desc" x-text="`+${Math.round((planComparison?.competencias_stats?.promedio_progreso_fin || 0) - (planComparison?.competencias_stats?.promedio_progreso_inicio || 0))}% de mejora`"></div>
+                    </div>
+                </div>
+
+                <!-- Gráficos -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Gráfico de Comparación -->
+                    <div class="card bg-base-100 shadow-lg">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                <i class="fas fa-chart-bar text-primary"></i>
+                                Comparación Inicio vs Fin
+                            </h3>
+                            <div style="height: 400px;">
+                                <canvas id="competenciasChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico de Evolución -->
+                    <div class="card bg-base-100 shadow-lg">
+                        <div class="card-body">
+                            <h3 class="card-title">
+                                <i class="fas fa-chart-line text-success"></i>
+                                Evolución en el Tiempo
+                            </h3>
+                            <div style="height: 400px;">
+                                <canvas id="evolutionChart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -502,60 +798,60 @@
                             <label class="label">
                                 <span class="label-text">Semana del:</span>
                             </label>
-                            <input type="date" class="input input-bordered" />
+                            <input type="date" x-model="weeklyLog.semana_inicio" class="input input-bordered" />
                         </div>
                         <div class="form-control">
                             <label class="label">
                                 <span class="label-text">al:</span>
                             </label>
-                            <input type="date" class="input input-bordered" />
+                            <input type="date" x-model="weeklyLog.semana_fin" class="input input-bordered" />
                         </div>
                     </div>
-                    
+
                     <div class="form-control">
                         <label class="label">
                             <span class="label-text">Logros de la semana 🏆</span>
                         </label>
-                        <textarea class="textarea textarea-bordered" placeholder="¿Qué logré esta semana?" rows="3"></textarea>
+                        <textarea x-model="weeklyLog.logros" class="textarea textarea-bordered" placeholder="¿Qué logré esta semana?" rows="3"></textarea>
                     </div>
-                    
+
                     <div class="form-control">
                         <label class="label">
                             <span class="label-text">Desafíos enfrentados 💪</span>
                         </label>
-                        <textarea class="textarea textarea-bordered" placeholder="Obstáculos y cómo los superé..." rows="3"></textarea>
+                        <textarea x-model="weeklyLog.dificultades" class="textarea textarea-bordered" placeholder="Obstáculos y cómo los superé..." rows="3"></textarea>
                     </div>
-                    
+
                     <div class="form-control">
                         <label class="label">
                             <span class="label-text">Aprendizajes 📚</span>
                         </label>
-                        <textarea class="textarea textarea-bordered" placeholder="¿Qué aprendí?" rows="3"></textarea>
+                        <textarea x-model="weeklyLog.aprendizajes" class="textarea textarea-bordered" placeholder="¿Qué aprendí?" rows="3"></textarea>
                     </div>
-                    
+
                     <div class="form-control">
                         <label class="label">
                             <span class="label-text">Reflexiones 💭</span>
                         </label>
-                        <textarea class="textarea textarea-bordered" placeholder="Pensamientos sobre mi progreso..." rows="4"></textarea>
+                        <textarea x-model="weeklyLog.reflexiones" class="textarea textarea-bordered" placeholder="Pensamientos sobre mi progreso..." rows="4"></textarea>
                     </div>
-                    
+
                     <div class="grid grid-cols-2 gap-4">
                         <div class="form-control">
                             <label class="label">
-                                <span class="label-text">Nivel de Energía (1-5) ⚡</span>
+                                <span class="label-text">Nivel de Energía: <span x-text="weeklyLog.nivel_energia"></span>/5 ⚡</span>
                             </label>
-                            <input type="range" min="1" max="5" class="range range-primary" step="1" />
+                            <input type="range" x-model.number="weeklyLog.nivel_energia" min="1" max="5" class="range range-primary" step="1" />
                         </div>
                         <div class="form-control">
                             <label class="label">
-                                <span class="label-text">Satisfacción (1-5) 😊</span>
+                                <span class="label-text">Satisfacción: <span x-text="weeklyLog.satisfaccion"></span>/5 😊</span>
                             </label>
-                            <input type="range" min="1" max="5" class="range range-success" step="1" />
+                            <input type="range" x-model.number="weeklyLog.satisfaccion" min="1" max="5" class="range range-success" step="1" />
                         </div>
                     </div>
-                    
-                    <button class="btn btn-primary mt-4 btn-block">
+
+                    <button class="btn btn-primary mt-4 btn-block" @click="saveWeeklyLog">
                         <i class="fas fa-save"></i> Guardar Bitácora
                     </button>
                 </div>
@@ -607,7 +903,337 @@
         </div>
         
     </main>
-    
+
+    <!-- Modal: Nueva Tarea -->
+    <div x-show="showNewTaskModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <!-- Overlay -->
+            <div class="fixed inset-0 bg-black opacity-50" @click="showNewTaskModal = false"></div>
+
+            <!-- Modal Content -->
+            <div class="relative bg-base-100 rounded-lg shadow-xl max-w-2xl w-full p-6 z-10">
+                <h3 class="text-2xl font-bold mb-4">
+                    <i class="fas fa-tasks text-primary"></i> Nueva Tarea
+                </h3>
+
+                <form @submit.prevent="createTask">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Título -->
+                        <div class="form-control md:col-span-2">
+                            <label class="label">
+                                <span class="label-text font-semibold">Título *</span>
+                            </label>
+                            <input type="text" x-model="newTask.titulo" class="input input-bordered" placeholder="Ej: Completar proyecto X" required />
+                        </div>
+
+                        <!-- Descripción -->
+                        <div class="form-control md:col-span-2">
+                            <label class="label">
+                                <span class="label-text">Descripción</span>
+                            </label>
+                            <textarea x-model="newTask.descripcion" class="textarea textarea-bordered" rows="2" placeholder="Detalles de la tarea..."></textarea>
+                        </div>
+
+                        <!-- Clasificación -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Clasificación</span>
+                                <button type="button" class="btn btn-ghost btn-xs" @click="showAddClasificacion = !showAddClasificacion" title="Agregar nueva clasificación">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </label>
+                            <div x-show="showAddClasificacion" class="mb-2">
+                                <div class="join w-full">
+                                    <input type="text" x-model="nuevaClasificacion" class="input input-bordered input-sm join-item flex-1" placeholder="Ej: desarrollo-web" />
+                                    <button type="button" class="btn btn-sm btn-primary join-item" @click="addClasificacion">Agregar</button>
+                                </div>
+                            </div>
+                            <select x-model="newTask.clasificacion" class="select select-bordered">
+                                <option value="">Seleccionar...</option>
+                                <template x-for="clasificacion in userConfig.clasificaciones" :key="clasificacion">
+                                    <option :value="clasificacion" x-text="clasificacion"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Categoría -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Categoría *</span>
+                                <button type="button" class="btn btn-ghost btn-xs" @click="showAddCategoria = !showAddCategoria" title="Agregar nueva categoría">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </label>
+                            <div x-show="showAddCategoria" class="mb-2">
+                                <div class="join w-full">
+                                    <input type="text" x-model="nuevaCategoria" class="input input-bordered input-sm join-item flex-1" placeholder="Ej: proyecto" />
+                                    <button type="button" class="btn btn-sm btn-primary join-item" @click="addCategoria">Agregar</button>
+                                </div>
+                            </div>
+                            <select x-model="newTask.categoria" class="select select-bordered" required>
+                                <template x-for="categoria in userConfig.categorias" :key="categoria">
+                                    <option :value="categoria" x-text="categoria"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Fecha Inicio -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Fecha Inicio *</span>
+                            </label>
+                            <input type="date" x-model="newTask.fecha_inicio" class="input input-bordered" required />
+                        </div>
+
+                        <!-- Fecha Fin -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Fecha Fin *</span>
+                            </label>
+                            <input type="date" x-model="newTask.fecha_fin" class="input input-bordered" required />
+                        </div>
+
+                        <!-- Estado -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Estado</span>
+                            </label>
+                            <select x-model="newTask.estado" class="select select-bordered">
+                                <option value="pendiente">Pendiente</option>
+                                <option value="en_progreso">En Progreso</option>
+                                <option value="completada">Completada</option>
+                                <option value="cancelada">Cancelada</option>
+                            </select>
+                        </div>
+
+                        <!-- Prioridad -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Prioridad</span>
+                            </label>
+                            <select x-model="newTask.prioridad" class="select select-bordered">
+                                <option value="baja">Baja</option>
+                                <option value="media">Media</option>
+                                <option value="alta">Alta</option>
+                            </select>
+                        </div>
+
+                        <!-- Es Macrotarea -->
+                        <div class="form-control">
+                            <label class="label cursor-pointer">
+                                <span class="label-text">Es Macrotarea (tiene subtareas)</span>
+                                <input type="checkbox" x-model="newTask.es_macrotarea" class="checkbox checkbox-primary" />
+                            </label>
+                        </div>
+
+                        <!-- Tarea Padre -->
+                        <div class="form-control" x-show="!newTask.es_macrotarea">
+                            <label class="label">
+                                <span class="label-text">Tarea Padre (subtarea de...)</span>
+                            </label>
+                            <select x-model="newTask.parent_task_id" class="select select-bordered">
+                                <option value="">Ninguna (tarea independiente)</option>
+                                <template x-for="task in tasks.filter(t => t.es_macrotarea)" :key="task.id">
+                                    <option :value="task.id" x-text="task.titulo"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Progreso -->
+                        <div class="form-control md:col-span-2" x-show="!newTask.es_macrotarea">
+                            <label class="label">
+                                <span class="label-text">Progreso: <span x-text="newTask.progreso + '%'"></span></span>
+                            </label>
+                            <input type="range" x-model.number="newTask.progreso" min="0" max="100" step="5" class="range range-primary"
+                                   @input="updateEstadoByProgreso(newTask)" />
+                            <div class="text-xs text-warning mt-1" x-show="newTask.progreso > 90">
+                                ⚠️ Progreso mayor al 90% - Se requieren evidencias
+                            </div>
+                            <div class="w-full flex justify-between text-xs px-2">
+                                <span>0%</span>
+                                <span>25%</span>
+                                <span>50%</span>
+                                <span>75%</span>
+                                <span>100%</span>
+                            </div>
+                        </div>
+
+                        <!-- Tiempo Estimado -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Tiempo Estimado (horas)</span>
+                            </label>
+                            <input type="number" x-model.number="newTask.tiempo_estimado" class="input input-bordered" placeholder="8" min="0" step="0.5" />
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div class="form-control md:col-span-2">
+                            <label class="label">
+                                <span class="label-text">Observaciones</span>
+                            </label>
+                            <textarea x-model="newTask.observaciones" class="textarea textarea-bordered" rows="2" placeholder="Notas adicionales, comentarios, requisitos especiales..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Info sobre Macrotareas -->
+                    <div x-show="newTask.es_macrotarea" class="alert alert-info mt-4">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="text-sm">Las macrotareas agrupan subtareas. Su progreso se calcula automáticamente del promedio de sus subtareas.</span>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="modal-action">
+                        <button type="button" class="btn btn-ghost" @click="showNewTaskModal = false">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Crear Tarea
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Editar Tarea -->
+    <div x-show="showEditTaskModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <!-- Overlay -->
+            <div class="fixed inset-0 bg-black opacity-50" @click="showEditTaskModal = false"></div>
+
+            <!-- Modal Content -->
+            <div class="relative bg-base-100 rounded-lg shadow-xl max-w-2xl w-full p-6 z-10" x-show="editingTask">
+                <h3 class="text-2xl font-bold mb-4">
+                    <i class="fas fa-edit text-primary"></i> Editar Tarea
+                </h3>
+
+                <form @submit.prevent="updateTask">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Título -->
+                        <div class="form-control md:col-span-2">
+                            <label class="label">
+                                <span class="label-text font-semibold">Título *</span>
+                            </label>
+                            <input type="text" x-model="editingTask.titulo" class="input input-bordered" required />
+                        </div>
+
+                        <!-- Descripción -->
+                        <div class="form-control md:col-span-2">
+                            <label class="label">
+                                <span class="label-text">Descripción</span>
+                            </label>
+                            <textarea x-model="editingTask.descripcion" class="textarea textarea-bordered" rows="2"></textarea>
+                        </div>
+
+                        <!-- Clasificación -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Clasificación</span>
+                            </label>
+                            <select x-model="editingTask.clasificacion" class="select select-bordered">
+                                <option value="">Seleccionar...</option>
+                                <template x-for="clasificacion in userConfig.clasificaciones" :key="clasificacion">
+                                    <option :value="clasificacion" x-text="clasificacion"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Categoría -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Categoría *</span>
+                            </label>
+                            <select x-model="editingTask.categoria" class="select select-bordered" required>
+                                <template x-for="categoria in userConfig.categorias" :key="categoria">
+                                    <option :value="categoria" x-text="categoria"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Fecha Inicio -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Fecha Inicio *</span>
+                            </label>
+                            <input type="date" x-model="editingTask.fecha_inicio" class="input input-bordered" required />
+                        </div>
+
+                        <!-- Fecha Fin -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Fecha Fin *</span>
+                            </label>
+                            <input type="date" x-model="editingTask.fecha_fin" class="input input-bordered" required />
+                        </div>
+
+                        <!-- Estado -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Estado</span>
+                            </label>
+                            <select x-model="editingTask.estado" class="select select-bordered">
+                                <option value="pendiente">Pendiente</option>
+                                <option value="en_progreso">En Progreso</option>
+                                <option value="completada">Completada</option>
+                                <option value="cancelada">Cancelada</option>
+                            </select>
+                        </div>
+
+                        <!-- Prioridad -->
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Prioridad</span>
+                            </label>
+                            <select x-model="editingTask.prioridad" class="select select-bordered">
+                                <option value="baja">Baja</option>
+                                <option value="media">Media</option>
+                                <option value="alta">Alta</option>
+                            </select>
+                        </div>
+
+                        <!-- Progreso -->
+                        <div class="form-control md:col-span-2">
+                            <label class="label">
+                                <span class="label-text">Progreso (%): <span x-text="editingTask.progreso || 0"></span>%</span>
+                            </label>
+                            <input type="range" x-model="editingTask.progreso" min="0" max="100" class="range range-primary"
+                                   @input="updateEstadoByProgreso(editingTask)" />
+                            <div class="text-xs text-warning mt-1" x-show="editingTask.progreso > 90">
+                                ⚠️ Progreso mayor al 90% - Se requieren evidencias
+                            </div>
+                        </div>
+
+                        <!-- Es Macrotarea -->
+                        <div class="form-control">
+                            <label class="label cursor-pointer">
+                                <span class="label-text">¿Es una Macrotarea?</span>
+                                <input type="checkbox" x-model="editingTask.es_macrotarea" class="checkbox checkbox-primary" />
+                            </label>
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div class="form-control md:col-span-2">
+                            <label class="label">
+                                <span class="label-text">Observaciones</span>
+                            </label>
+                            <textarea x-model="editingTask.observaciones" class="textarea textarea-bordered" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="modal-action">
+                        <button type="button" class="btn btn-ghost" @click="showEditTaskModal = false">
+                            Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications -->
     <div class="toast toast-end" x-show="showToast" x-transition>
         <div class="alert" :class="toastType === 'success' ? 'alert-success' : 'alert-error'">
@@ -622,6 +1248,7 @@
                 // Estado general
                 currentView: 'dashboard',
                 taskView: 'list',
+                monthlyView: 'gestion',
                 userInitials: 'U',
                 showToast: false,
                 toastMessage: '',
@@ -639,12 +1266,89 @@
                 recentTasks: [],
                 weeklyLogs: [],
                 draggedTask: null,
-                
+
                 // Modales
                 showNewTaskModal: false,
+                showEditTaskModal: false,
                 showNewMonthlyPlanModal: false,
                 showNewWeeklyLogModal: false,
-                
+                showAddClasificacion: false,
+                showAddCategoria: false,
+
+                // Tarea en edición
+                editingTask: null,
+
+                // Configuración de usuario
+                userConfig: {
+                    clasificaciones: ['desarrollo', 'investigacion', 'documentacion', 'reunion', 'estudio', 'revision', 'planificacion', 'testing'],
+                    categorias: ['aprendizaje', 'compromiso', 'competencia', 'personal']
+                },
+                nuevaClasificacion: '',
+                nuevaCategoria: '',
+
+                // Datos de formularios
+                newTask: {
+                    titulo: '',
+                    descripcion: '',
+                    clasificacion: '',
+                    categoria: 'personal',
+                    fecha_inicio: new Date().toISOString().split('T')[0],
+                    fecha_fin: new Date().toISOString().split('T')[0],
+                    estado: 'pendiente',
+                    prioridad: 'media',
+                    progreso: 0,
+                    es_macrotarea: false,
+                    parent_task_id: '',
+                    tiempo_estimado: null,
+                    observaciones: ''
+                },
+
+                monthlyPlan: {
+                    mes: new Date().toISOString().split('T')[0],
+                    competencias_trabajar: '',
+                    competencias: [],
+                    que_quiero_lograr: '',
+                    mis_fortalezas: '',
+                    mis_debilidades: ''
+                },
+
+                currentPlanId: null,
+                monthlyPlans: [],
+                competenciasEvolution: {},
+                planComparison: null,
+
+                newCompetencia: {
+                    nombre: '',
+                    progreso_inicio: 0,
+                    progreso_actual: 0,
+                    progreso_fin: null,
+                    notas: ''
+                },
+
+                monthlyReview: {
+                    que_mejore: '',
+                    que_falta_mejorar: '',
+                    habilidades_desarrolladas: '',
+                    momento_memorable: ''
+                },
+
+                // Charts
+                competenciasChart: null,
+                evolutionChart: null,
+
+                weeklyLog: {
+                    semana_inicio: new Date().toISOString().split('T')[0],
+                    semana_fin: new Date().toISOString().split('T')[0],
+                    actividades_realizadas: '',
+                    logros: '',
+                    dificultades: '',
+                    aprendizajes: '',
+                    reflexiones: '',
+                    nivel_energia: 3,
+                    satisfaccion: 3,
+                    proximos_pasos: ''
+                },
+
                 // Inicialización
                 async init() {
                     const token = localStorage.getItem('access_token');
@@ -652,11 +1356,14 @@
                         window.location.href = '/login';
                         return;
                     }
-                    
+
                     this.userInitials = this.getUserInitials();
+                    await this.loadUserConfig();
                     await this.loadDashboardData();
                     await this.loadTasks();
                     await this.loadWeeklyLogs();
+                    await this.loadMonthlyPlans();
+                    await this.loadCompetenciasEvolution();
                     this.initCharts();
                 },
                 
@@ -698,7 +1405,65 @@
                         console.error('Error loading weekly logs:', error);
                     }
                 },
-                
+
+                async loadUserConfig() {
+                    try {
+                        const response = await this.apiCall('/api/config');
+                        if (response) {
+                            this.userConfig = {
+                                clasificaciones: response.clasificaciones || [],
+                                categorias: response.categorias || []
+                            };
+                        }
+                    } catch (error) {
+                        console.error('Error loading user config:', error);
+                    }
+                },
+
+                async addClasificacion() {
+                    if (!this.nuevaClasificacion.trim()) {
+                        this.showNotification('Ingresa un nombre para la clasificación', 'error');
+                        return;
+                    }
+
+                    try {
+                        const response = await this.apiCall('/api/config/clasificaciones', 'POST', {
+                            nombre: this.nuevaClasificacion.trim()
+                        });
+
+                        if (response) {
+                            this.userConfig.clasificaciones = response.clasificaciones;
+                            this.nuevaClasificacion = '';
+                            this.showAddClasificacion = false;
+                            this.showNotification('Clasificación agregada', 'success');
+                        }
+                    } catch (error) {
+                        this.showNotification('Error al agregar clasificación', 'error');
+                    }
+                },
+
+                async addCategoria() {
+                    if (!this.nuevaCategoria.trim()) {
+                        this.showNotification('Ingresa un nombre para la categoría', 'error');
+                        return;
+                    }
+
+                    try {
+                        const response = await this.apiCall('/api/config/categorias', 'POST', {
+                            nombre: this.nuevaCategoria.trim()
+                        });
+
+                        if (response) {
+                            this.userConfig.categorias = response.categorias;
+                            this.nuevaCategoria = '';
+                            this.showAddCategoria = false;
+                            this.showNotification('Categoría agregada', 'success');
+                        }
+                    } catch (error) {
+                        this.showNotification('Error al agregar categoría', 'error');
+                    }
+                },
+
                 async apiCall(endpoint, method = 'GET', data = null) {
                     const token = localStorage.getItem('access_token');
                     const options = {
@@ -744,7 +1509,20 @@
                     };
                     return classes[priority] || '';
                 },
-                
+
+                updateEstadoByProgreso(task) {
+                    // Actualizar estado automáticamente según progreso
+                    const progreso = parseInt(task.progreso) || 0;
+
+                    if (progreso === 0) {
+                        task.estado = 'pendiente';
+                    } else if (progreso > 0 && progreso < 100) {
+                        task.estado = 'en_progreso';
+                    } else if (progreso === 100) {
+                        task.estado = 'completada';
+                    }
+                },
+
                 getTasksByStatus(status) {
                     return this.tasks.filter(task => task.estado === status);
                 },
@@ -788,18 +1566,241 @@
                 },
                 
                 // CRUD Operations
+                async createTask() {
+                    try {
+                        const response = await this.apiCall('/api/tasks', 'POST', this.newTask);
+
+                        if (response) {
+                            this.showNotification('Tarea creada exitosamente', 'success');
+                            this.showNewTaskModal = false;
+                            await this.loadTasks();
+                            await this.loadDashboardData();
+
+                            // Reset form
+                            this.newTask = {
+                                titulo: '',
+                                descripcion: '',
+                                clasificacion: '',
+                                categoria: 'personal',
+                                fecha_inicio: new Date().toISOString().split('T')[0],
+                                fecha_fin: new Date().toISOString().split('T')[0],
+                                estado: 'pendiente',
+                                prioridad: 'media',
+                                progreso: 0,
+                                es_macrotarea: false,
+                                parent_task_id: '',
+                                tiempo_estimado: null,
+                                observaciones: ''
+                            };
+                        }
+                    } catch (error) {
+                        this.showNotification('Error al crear tarea: ' + error.message, 'error');
+                    }
+                },
+
                 async deleteTask(taskId) {
                     if (!confirm('¿Estás seguro de eliminar esta tarea?')) return;
-                    
+
                     try {
                         await this.apiCall(`/api/tasks/${taskId}`, 'DELETE');
                         this.tasks = this.tasks.filter(t => t.id !== taskId);
                         this.showNotification('Tarea eliminada', 'success');
+                        await this.loadDashboardData();
                     } catch (error) {
                         this.showNotification('Error al eliminar tarea', 'error');
                     }
                 },
-                
+
+                editTask(task) {
+                    // Cargar los datos de la tarea en el formulario de edición
+                    this.editingTask = { ...task };
+                    this.showEditTaskModal = true;
+                },
+
+                async updateTask() {
+                    try {
+                        const taskId = this.editingTask.id;
+                        const response = await this.apiCall(`/api/tasks/${taskId}`, 'PUT', this.editingTask);
+
+                        if (response) {
+                            this.showNotification('Tarea actualizada exitosamente', 'success');
+                            this.showEditTaskModal = false;
+                            await this.loadTasks();
+                            await this.loadDashboardData();
+                            this.editingTask = null;
+                        }
+                    } catch (error) {
+                        this.showNotification('Error al actualizar tarea: ' + error.message, 'error');
+                    }
+                },
+
+                // Plan Mensual y Bitácoras
+                async loadMonthlyPlans() {
+                    try {
+                        const response = await this.apiCall('/api/monthly/plans');
+                        if (response) {
+                            this.monthlyPlans = response;
+                            if (response.length > 0) {
+                                this.currentPlanId = response[0].id;
+                                this.monthlyPlan = {...response[0]};
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error loading monthly plans:', error);
+                    }
+                },
+
+                async loadCompetenciasEvolution() {
+                    try {
+                        const response = await this.apiCall('/api/monthly/evolution?months=6');
+                        if (response) {
+                            this.competenciasEvolution = response.evolution;
+                            this.renderEvolutionChart();
+                        }
+                    } catch (error) {
+                        console.error('Error loading evolution:', error);
+                    }
+                },
+
+                async loadPlanComparison(planId) {
+                    try {
+                        const response = await this.apiCall(`/api/monthly/comparison/${planId}`);
+                        if (response) {
+                            this.planComparison = response;
+                            this.renderCompetenciasChart();
+                        }
+                    } catch (error) {
+                        console.error('Error loading comparison:', error);
+                    }
+                },
+
+                async saveMonthlyPlan() {
+                    try {
+                        const response = await this.apiCall('/api/monthly/plans', 'POST', this.monthlyPlan);
+
+                        if (response) {
+                            this.currentPlanId = response.id;
+                            this.showNotification('Plan mensual guardado exitosamente', 'success');
+                            await this.loadDashboardData();
+                            await this.loadMonthlyPlans();
+
+                            // Reset form
+                            this.monthlyPlan = {
+                                mes: new Date().toISOString().split('T')[0],
+                                competencias_trabajar: '',
+                                competencias: [],
+                                que_quiero_lograr: '',
+                                mis_fortalezas: '',
+                                mis_debilidades: ''
+                            };
+                        }
+                    } catch (error) {
+                        this.showNotification('Error al guardar plan mensual: ' + error.message, 'error');
+                    }
+                },
+
+                addCompetencia() {
+                    if (!this.newCompetencia.nombre.trim()) {
+                        this.showNotification('Ingresa el nombre de la competencia', 'error');
+                        return;
+                    }
+
+                    this.monthlyPlan.competencias.push({...this.newCompetencia});
+
+                    // Reset
+                    this.newCompetencia = {
+                        nombre: '',
+                        progreso_inicio: 0,
+                        progreso_actual: 0,
+                        progreso_fin: null,
+                        notas: ''
+                    };
+
+                    this.showNotification('Competencia agregada', 'success');
+                },
+
+                removeCompetencia(index) {
+                    this.monthlyPlan.competencias.splice(index, 1);
+                    this.showNotification('Competencia eliminada', 'success');
+                },
+
+                async updateCompetenciaProgress(index, field, value) {
+                    this.monthlyPlan.competencias[index][field] = value;
+
+                    // Guardar automáticamente si el plan ya existe
+                    if (this.currentPlanId) {
+                        try {
+                            await this.apiCall(
+                                `/api/monthly/plans/${this.currentPlanId}/competencias`,
+                                'PUT',
+                                this.monthlyPlan.competencias
+                            );
+                        } catch (error) {
+                            console.error('Error updating competencia:', error);
+                        }
+                    }
+                },
+
+                async saveMonthlyReview() {
+                    try {
+                        // Necesitamos el ID del plan mensual actual
+                        const currentPlan = this.stats.currentMonthPlan;
+                        if (!currentPlan) {
+                            this.showNotification('Debes crear un plan mensual primero', 'warning');
+                            return;
+                        }
+
+                        const reviewData = {
+                            ...this.monthlyReview,
+                            monthly_plan_id: currentPlan.id
+                        };
+
+                        const response = await this.apiCall('/api/monthly/reviews', 'POST', reviewData);
+
+                        if (response) {
+                            this.showNotification('Evaluación mensual guardada exitosamente', 'success');
+
+                            // Reset form
+                            this.monthlyReview = {
+                                que_mejore: '',
+                                que_falta_mejorar: '',
+                                habilidades_desarrolladas: '',
+                                momento_memorable: ''
+                            };
+                        }
+                    } catch (error) {
+                        this.showNotification('Error al guardar evaluación: ' + error.message, 'error');
+                    }
+                },
+
+                async saveWeeklyLog() {
+                    try {
+                        const response = await this.apiCall('/api/weekly/logs', 'POST', this.weeklyLog);
+
+                        if (response) {
+                            this.showNotification('Bitácora semanal guardada exitosamente', 'success');
+                            await this.loadWeeklyLogs();
+                            await this.loadDashboardData();
+
+                            // Reset form
+                            this.weeklyLog = {
+                                semana_inicio: new Date().toISOString().split('T')[0],
+                                semana_fin: new Date().toISOString().split('T')[0],
+                                actividades_realizadas: '',
+                                logros: '',
+                                dificultades: '',
+                                aprendizajes: '',
+                                reflexiones: '',
+                                nivel_energia: 3,
+                                satisfaccion: 3,
+                                proximos_pasos: ''
+                            };
+                        }
+                    } catch (error) {
+                        this.showNotification('Error al guardar bitácora: ' + error.message, 'error');
+                    }
+                },
+
                 // UI Functions
                 toggleTheme() {
                     const html = document.documentElement;
@@ -827,6 +1828,165 @@
                 initCharts() {
                     // Chart.js initialization will go here
                     console.log('Charts initialized');
+                },
+
+                renderCompetenciasChart() {
+                    if (!this.planComparison || !this.planComparison.competencias_stats.competencias.length) return;
+
+                    const canvas = document.getElementById('competenciasChart');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+
+                    // Destroy existing chart
+                    if (this.competenciasChart) {
+                        this.competenciasChart.destroy();
+                    }
+
+                    const competencias = this.planComparison.competencias_stats.competencias;
+
+                    this.competenciasChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: competencias.map(c => c.nombre),
+                            datasets: [
+                                {
+                                    label: 'Progreso Inicio',
+                                    data: competencias.map(c => c.progreso_inicio || 0),
+                                    backgroundColor: 'rgba(99, 102, 241, 0.5)',
+                                    borderColor: 'rgb(99, 102, 241)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'Progreso Actual',
+                                    data: competencias.map(c => c.progreso_actual || 0),
+                                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                                    borderColor: 'rgb(34, 197, 94)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'Progreso Fin',
+                                    data: competencias.map(c => c.progreso_fin || 0),
+                                    backgroundColor: 'rgba(139, 92, 246, 0.5)',
+                                    borderColor: 'rgb(139, 92, 246)',
+                                    borderWidth: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value + '%';
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: 'Comparación de Progreso por Competencia'
+                                },
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                }
+                            }
+                        }
+                    });
+                },
+
+                renderEvolutionChart() {
+                    if (!this.competenciasEvolution || Object.keys(this.competenciasEvolution).length === 0) return;
+
+                    const canvas = document.getElementById('evolutionChart');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+
+                    // Destroy existing chart
+                    if (this.evolutionChart) {
+                        this.evolutionChart.destroy();
+                    }
+
+                    // Preparar datos
+                    const colors = [
+                        'rgb(99, 102, 241)',
+                        'rgb(34, 197, 94)',
+                        'rgb(139, 92, 246)',
+                        'rgb(236, 72, 153)',
+                        'rgb(251, 191, 36)',
+                        'rgb(59, 130, 246)'
+                    ];
+
+                    const datasets = Object.keys(this.competenciasEvolution).map((competencia, index) => {
+                        const data = this.competenciasEvolution[competencia];
+                        return {
+                            label: competencia,
+                            data: data.map(d => ({
+                                x: d.mes,
+                                y: d.progreso_fin || d.progreso_actual
+                            })),
+                            borderColor: colors[index % colors.length],
+                            backgroundColor: colors[index % colors.length].replace(')', ', 0.1)').replace('rgb', 'rgba'),
+                            tension: 0.4,
+                            fill: false
+                        };
+                    });
+
+                    this.evolutionChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    time: {
+                                        unit: 'month',
+                                        displayFormats: {
+                                            month: 'MMM yyyy'
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Mes'
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    max: 100,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value + '%';
+                                        }
+                                    },
+                                    title: {
+                                        display: true,
+                                        text: 'Progreso'
+                                    }
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: 'Evolución de Competencias (Últimos 6 Meses)'
+                                },
+                                legend: {
+                                    display: true,
+                                    position: 'top'
+                                }
+                            }
+                        }
+                    });
                 }
             }
         }

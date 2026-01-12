@@ -2,13 +2,13 @@
 
 ## 📋 Descripción
 Aplicación web completa para gestionar tu plan de desarrollo profesional con:
-- ✅ Planes mensuales (inicio y fin de mes)
-- ✅ Bitácoras semanales
-- ✅ Tareas diarias (vista lista y Kanban)
-- ✅ Carga de evidencias (imágenes, PDFs, documentos)
-- ✅ Dashboard con métricas y gráficos
-- ✅ Exportar reportes a Excel
-- ✅ Sistema multiusuario (10-15 usuarios)
+- ✅ Planes mensuales (inicio y evaluación de fin de mes)
+- ✅ Bitácoras semanales con reflexiones
+- ✅ Gestión de tareas con jerarquía (Macrotareas → Subtareas)
+- ✅ Vista Lista y Kanban (drag & drop)
+- ✅ Dashboard con métricas y estadísticas
+- ✅ Sistema multiusuario con autenticación JWT
+- ✅ Clasificaciones y categorías personalizables por usuario
 
 ## 🎨 Características de la Interfaz
 - **Diseño moderno** con Tailwind CSS + DaisyUI
@@ -17,16 +17,17 @@ Aplicación web completa para gestionar tu plan de desarrollo profesional con:
 - **Drag & Drop** para Kanban
 - **Notificaciones** visuales
 - **Animaciones suaves**
+- **Jerarquía visual** de tareas
 
 ## 🛠️ Stack Tecnológico
-- **Backend**: FastAPI (Python)
+- **Backend**: FastAPI (Python 3.10+)
 - **Frontend**: HTML5 + Tailwind CSS + Alpine.js
 - **Base de Datos**: Supabase (PostgreSQL)
-- **Storage**: Supabase Storage (evidencias)
+- **Autenticación**: JWT custom
 - **Gráficos**: Chart.js
-- **Hosting**: Render.com (backend) + Netlify (frontend)
+- **Iconos**: Font Awesome
 
-## 📦 Instalación Rápida
+## 📦 Instalación y Configuración
 
 ### 1. Requisitos Previos
 ```bash
@@ -38,12 +39,8 @@ pip install --upgrade pip
 ```
 
 ### 2. Clonar y Configurar
-
 ```bash
-# Crear entorno virtual
-python -m venv venv
-
-# Activar entorno virtual
+# Activar entorno virtual (si ya existe)
 # Windows:
 venv\Scripts\activate
 # Mac/Linux:
@@ -53,207 +50,352 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Configurar Supabase
+### 3. Configurar Variables de Entorno
 
-1. Ve a [supabase.com](https://supabase.com) y crea cuenta gratis
-2. Crea un nuevo proyecto
-3. Ve a Settings > API y copia:
-   - Project URL
-   - anon/public key
-   - service_role key (solo backend)
+Crea o edita el archivo `.env` con tus credenciales de Supabase:
 
-4. Ve a SQL Editor y ejecuta el script `database_setup.sql`
+```env
+# Supabase Configuration
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_KEY=tu-service-role-key
 
-5. Ve a Storage y crea un bucket llamado `evidencias` con acceso público
-
-### 4. Configurar Variables de Entorno
-
-```bash
-# Copiar archivo de ejemplo
-cp .env.example .env
-
-# Editar .env con tus credenciales de Supabase
-nano .env
+# JWT Configuration
+JWT_SECRET_KEY=tu-secret-key-muy-segura
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_MINUTES=30
 ```
+
+### 4. Configurar Base de Datos en Supabase
+
+1. Ve a [supabase.com](https://supabase.com) y accede a tu proyecto
+2. Ve a **SQL Editor** y ejecuta el script `database_setup.sql`
+3. Verifica que se crearon las siguientes tablas:
+   - `daily_tasks` - Tareas diarias
+   - `monthly_plans` - Planes mensuales
+   - `monthly_reviews` - Evaluaciones mensuales
+   - `weekly_logs` - Bitácoras semanales
+   - `user_config` - Configuración personalizada por usuario
+   - `metrics` - Métricas calculadas automáticamente
 
 ### 5. Ejecutar Aplicación
 
 ```bash
-# Desarrollo (con recarga automática)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Iniciar servidor (Windows)
+iniciar.bat
 
-# Producción
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+# O manualmente:
+python main.py
+
+# O con uvicorn directamente:
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 Abre tu navegador en: `http://localhost:8000`
 
+**Usuario de prueba:**
+- Email: lxisilva@poligran.edu.co
+- Contraseña: (configura en primera ejecución)
+
 ## 📁 Estructura del Proyecto
 
 ```
-plan-desarrollo-api/
-├── app/
-│   ├── main.py                 # Aplicación principal FastAPI
-│   ├── config.py               # Configuración y variables
-│   ├── database.py             # Conexión Supabase
-│   ├── models.py               # Modelos Pydantic
-│   ├── auth.py                 # Autenticación JWT
-│   ├── routers/
-│   │   ├── tasks.py           # Rutas de tareas
-│   │   ├── monthly.py         # Planes mensuales
-│   │   ├── weekly.py          # Bitácoras semanales
-│   │   ├── files.py           # Upload evidencias
-│   │   └── dashboard.py       # Métricas y reportes
-│   └── templates/
-│       ├── index.html         # Página principal
-│       ├── login.html         # Login
-│       ├── dashboard.html     # Dashboard
-│       ├── tasks.html         # Gestión de tareas
-│       ├── monthly.html       # Planes mensuales
-│       └── weekly.html        # Bitácoras semanales
+Plan_Desarrollo_Profesional/
+├── main.py                     # Aplicación FastAPI principal
+├── templates/
+│   ├── login.html             # Página de login
+│   └── dashboard.html         # Dashboard principal (SPA)
 ├── static/
-│   ├── css/
-│   │   └── custom.css         # Estilos personalizados
-│   └── js/
-│       ├── app.js             # JavaScript principal
-│       ├── kanban.js          # Funcionalidad Kanban
-│       └── charts.js          # Gráficos y métricas
-├── uploads/                    # Evidencias temporales
-├── database_setup.sql          # Script SQL para Supabase
+│   └── style.css              # Estilos personalizados
+├── uploads/                    # Archivos subidos (temporal)
+├── database_setup.sql          # Script inicial de base de datos
 ├── requirements.txt            # Dependencias Python
-├── .env.example               # Ejemplo de variables
+├── .env                       # Variables de entorno (no subir a Git)
+├── .env.example               # Ejemplo de configuración
+├── iniciar.bat                # Script de inicio rápido (Windows)
 └── README.md                  # Este archivo
 ```
 
-## 🚀 Despliegue en Producción
+## 📊 Funcionalidades Principales
 
-### Opción 1: Render.com (Backend) + Netlify (Frontend)
+### 1. Dashboard
+- **Estadísticas del mes**: Total de tareas, completadas, pendientes, tasa de completitud
+- **Gráficos**: Progreso semanal, tareas por categoría
+- **Actividad reciente**: Últimas tareas y bitácoras
 
-**Backend en Render:**
-1. Crea cuenta en [render.com](https://render.com)
-2. New Web Service > Connect tu repo
-3. Build Command: `pip install -r requirements.txt`
-4. Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-5. Agrega variables de entorno desde .env
+### 2. Gestión de Tareas
 
-**Frontend estático en Netlify:**
-1. Sube carpeta `static/` y `templates/` a Netlify
-2. Configura CORS en FastAPI para permitir dominio de Netlify
+#### Características:
+- **Jerarquía**: Macrotareas que agrupan subtareas
+- **Progreso automático**: Las macrotareas calculan su progreso del promedio de sus subtareas
+- **Estado automático según progreso**:
+  - Progreso 0% → Estado: Pendiente
+  - Progreso 1-99% → Estado: En Progreso
+  - Progreso 100% → Estado: Completada
+- **Validación**: Progreso >90% requiere evidencias
+- **Clasificaciones y categorías personalizables** por usuario
+- **Campos de fecha**: Fecha inicio y fecha fin (rango)
 
-### Opción 2: Railway.app (Todo en uno)
-1. Crea cuenta en [railway.app](https://railway.app)
-2. New Project > Deploy from GitHub
-3. Agrega variables de entorno
-4. Railway detecta FastAPI automáticamente
+#### Vistas disponibles:
+- **Lista**: Tabla jerárquica con indentación visual
+- **Kanban**: Drag & drop entre Pendiente, En Progreso y Completada
 
-### Opción 3: PythonAnywhere (Gratis)
-1. Crea cuenta free en [pythonanywhere.com](https://www.pythonanywhere.com)
-2. Sube archivos vía FTP o Git
-3. Configura WSGI para FastAPI
-4. Límite: 512MB RAM, suficiente para 10-15 usuarios
-
-## 📊 Uso de la Aplicación
-
-### 1. Registro e Inicio de Sesión
-- Primera vez: Registra tu cuenta
-- Usuarios adicionales: El admin puede crear cuentas
-
-### 2. Dashboard Principal
-- Vista general de progreso
-- Tareas pendientes/completadas
-- Gráficos de evolución
-- Métricas mensuales
+#### Campos de cada tarea:
+- Título y descripción
+- Clasificación (personalizable)
+- Categoría (personalizable)
+- Estado (pendiente, en_progreso, completada, cancelada)
+- Prioridad (baja, media, alta)
+- Progreso (0-100%)
+- Fecha inicio y fecha fin
+- Es macrotarea (checkbox)
+- Tarea padre (para subtareas)
+- Observaciones
 
 ### 3. Plan Mensual
-- **Inicio de mes**: Define competencias, objetivos, fortalezas
-- **Fin de mes**: Evalúa logros, habilidades desarrolladas
+
+#### Inicio de Mes:
+- Competencias a trabajar
+- ¿Qué quiero lograr?
+- Mis fortalezas
+- Mis debilidades
+
+#### Fin de Mes - Evaluación:
+- ¿Qué mejoré?
+- ¿Qué me faltó mejorar?
+- Habilidades desarrolladas
+- Momento memorable
 
 ### 4. Bitácora Semanal
-- Registra logros de la semana
-- Documenta desafíos
-- Reflexiones y aprendizajes
 
-### 5. Tareas Diarias
-- **Vista Lista**: Todas las tareas ordenadas
-- **Vista Kanban**: Arrastra entre Pendiente → En Progreso → Completada
-- **Carga evidencias**: Adjunta imágenes, PDFs, documentos
+Registra semanalmente:
+- Período (fecha inicio - fecha fin)
+- Logros de la semana
+- Desafíos enfrentados
+- Aprendizajes
+- Reflexiones
+- Nivel de energía (1-5)
+- Satisfacción (1-5)
 
-### 6. Reportes
-- Exporta a Excel tus planes mensuales
-- Descarga evidencias en ZIP
-- Integración con Power BI (API REST)
+### 5. Configuración Personalizable
 
-## 🔧 Personalización
+Cada usuario puede agregar sus propias:
+- **Clasificaciones**: desarrollo, investigación, documentación, etc.
+- **Categorías**: aprendizaje, compromiso, competencia, personal, etc.
 
-### Cambiar Colores del Tema
-Edita `static/css/custom.css`:
-```css
-:root {
-  --primary: #6366f1;    /* Color principal */
-  --secondary: #8b5cf6;  /* Color secundario */
-  --accent: #ec4899;     /* Color de acento */
-}
-```
+## 🔧 Características Técnicas
 
-### Agregar Más Competencias
-Edita `app/config.py` en la lista `COMPETENCIAS_DEFAULT`
+### Autenticación
+- Sistema JWT custom (no usa Supabase Auth)
+- Tokens con expiración de 30 minutos
+- Protección de rutas con dependencia `verify_token`
 
-### Modificar Categorías de Tareas
-Edita `app/models.py` en el enum `TaskCategory`
+### Base de Datos
+- **Row Level Security (RLS)** habilitado en todas las tablas
+- **Políticas RLS** configuradas por usuario
+- **Triggers automáticos**:
+  - Cálculo de progreso de macrotareas
+  - Actualización de métricas diarias
+- **Service Role Key** usado en backend para bypassear RLS
 
-## 🔐 Seguridad
+### API Endpoints
 
-- Autenticación JWT con tokens de 30 minutos
-- Contraseñas hasheadas con bcrypt
-- CORS configurado solo para dominios autorizados
-- Rate limiting en rutas sensibles
-- Validación de archivos subidos (tipo y tamaño)
+#### Autenticación:
+- `POST /api/auth/register` - Registro de usuario
+- `POST /api/auth/login` - Inicio de sesión
 
-## 📈 Integración con Power BI
+#### Tareas:
+- `GET /api/tasks` - Listar tareas (con filtros)
+- `POST /api/tasks` - Crear tarea
+- `PUT /api/tasks/{id}` - Actualizar tarea
+- `DELETE /api/tasks/{id}` - Eliminar tarea
 
-La aplicación expone API REST para conectar con Power BI:
+#### Configuración:
+- `GET /api/config` - Obtener clasificaciones y categorías del usuario
+- `POST /api/config/clasificaciones` - Agregar clasificación
+- `POST /api/config/categorias` - Agregar categoría
 
-```
-GET /api/tasks/all          # Todas las tareas
-GET /api/monthly/all        # Planes mensuales
-GET /api/weekly/all         # Bitácoras semanales
-GET /api/metrics/summary    # Métricas agregadas
-```
+#### Plan Mensual:
+- `POST /api/monthly/plans` - Crear plan mensual
+- `GET /api/monthly/plans` - Listar planes
+- `POST /api/monthly/reviews` - Crear evaluación mensual
 
-**En Power BI:**
-1. Obtener datos > Web
-2. URL: `http://tu-dominio/api/tasks/all`
-3. Agregar header: `Authorization: Bearer TU_TOKEN`
+#### Bitácora Semanal:
+- `POST /api/weekly/logs` - Crear bitácora
+- `GET /api/weekly/logs` - Listar bitácoras
+
+#### Dashboard:
+- `GET /api/dashboard/summary` - Resumen de estadísticas
+- `GET /api/dashboard/tasks-by-day` - Tareas agrupadas por día
+
+## 🎯 Uso de la Aplicación
+
+### Primer Uso
+1. Accede a `http://localhost:8000`
+2. Regístrate con tu email institucional
+3. El sistema creará automáticamente tu perfil y configuración inicial
+
+### Crear una Tarea
+1. Ve a **Tareas** en el menú
+2. Clic en **+ Nueva Tarea**
+3. Llena los campos requeridos:
+   - Título (obligatorio)
+   - Fecha inicio y fin (obligatorio)
+   - Categoría (obligatorio)
+   - Clasificación, estado, prioridad (opcionales)
+4. Marca "Es una Macrotarea" si quieres agrupar subtareas
+5. Clic en **Crear Tarea**
+
+### Crear una Subtarea
+1. Crea o edita una tarea
+2. En el campo "Tarea Padre" selecciona la macrotarea
+3. El progreso de la macrotarea se calculará automáticamente
+
+### Editar y Eliminar
+- **Vista Lista**: Botones de lápiz (editar) y papelera (eliminar) en cada fila
+- **Vista Kanban**: Menú de 3 puntos (⋮) en cada tarjeta
+
+### Cambiar Estado con Drag & Drop
+1. Ve a vista **Kanban**
+2. Arrastra las tarjetas entre columnas
+3. El estado se actualizará automáticamente
 
 ## 🐛 Solución de Problemas
 
-### Error: "ModuleNotFoundError"
+### Error: "API Call failed"
+- Verifica que el servidor esté ejecutándose (`python main.py`)
+- Verifica que las variables de entorno en `.env` sean correctas
+- Revisa la consola del servidor para ver el error específico
+
+### Error: "401 Unauthorized"
+- Tu token JWT expiró (30 minutos)
+- Vuelve a iniciar sesión desde `/login`
+
+### Las tareas no se muestran en la Lista
+- Verifica en la consola del navegador (F12) si hay errores JavaScript
+- Revisa que las tareas se estén cargando (aparece el contador verde arriba de la tabla)
+
+### El dashboard muestra "undefined% completado"
+- Verifica que el backend esté enviando datos en camelCase
+- Revisa la respuesta del endpoint `/api/dashboard/summary`
+
+### Error al guardar Plan Mensual o Bitácora
+- Verifica que todos los campos obligatorios estén llenos
+- Revisa la consola del navegador para ver el error específico
+- Verifica que las tablas existan en Supabase
+
+## 🔐 Seguridad
+
+- Autenticación JWT con secret key
+- Contraseñas no implementadas en esta versión (solo email)
+- RLS habilitado en Supabase
+- CORS configurado para localhost en desarrollo
+
+## 📈 Próximas Mejoras
+
+- [ ] Sistema de evidencias (upload de archivos)
+- [ ] Exportar reportes a Excel
+- [ ] Gráficos más avanzados
+- [ ] Notificaciones de tareas pendientes
+- [ ] Filtros avanzados en vista de tareas
+- [ ] Búsqueda global
+
+## 🚀 Despliegue a Producción (100% GRATIS)
+
+### ✨ Opciones Gratuitas Disponibles
+
+| Plataforma | Costo | Limitación | Ideal Para |
+|------------|-------|------------|------------|
+| **Render** | GRATIS | Se duerme tras 15 min | Uso educativo/personal |
+| **Fly.io** | GRATIS | Requiere tarjeta (no cobra) | Siempre activo 24/7 |
+
+### Verificación Pre-Despliegue
+Ejecuta el script de verificación antes de desplegar:
 ```bash
-pip install -r requirements.txt
+python check_production.py
 ```
 
-### Error: "Supabase connection failed"
-- Verifica que SUPABASE_URL y SUPABASE_KEY estén correctos en .env
-- Verifica que el proyecto Supabase esté activo
+Este script verificará:
+- ✅ Archivos necesarios (Procfile, requirements.txt, etc.)
+- ✅ Variables de entorno configuradas correctamente
+- ✅ .gitignore incluyendo archivos sensibles
+- ✅ Configuración de seguridad
+- ✅ Dependencias completas
 
-### Error: "File upload failed"
-- Verifica que el bucket 'evidencias' exista en Supabase Storage
-- Verifica permisos del bucket (debe ser público para lectura)
+### Guía Completa de Despliegue
 
-### Las tareas no se guardan
-- Ejecuta el script `database_setup.sql` en Supabase
-- Verifica que las tablas se hayan creado correctamente
+Para instrucciones detalladas paso a paso sobre cómo desplegar la aplicación GRATIS:
 
-## 📞 Soporte
+📖 **[Ver Guía Completa de Producción GRATIS](./GUIA_PRODUCCION.md)**
 
-Para problemas o mejoras, crea un issue en el repositorio.
+La guía incluye:
+- ✅ Despliegue en Render (100% gratis, recomendado)
+- ✅ Alternativas gratuitas (Fly.io, Koyeb)
+- ✅ Configuración de Supabase (gratis hasta 500MB)
+- ✅ Variables de entorno
+- ✅ Seguridad y mejores prácticas
+- ✅ Monitoreo gratuito con UptimeRobot
+- ✅ Troubleshooting común
+
+### Despliegue Rápido en Render (GRATIS)
+
+1. **Verificar configuración**:
+   ```bash
+   python check_production.py
+   ```
+
+2. **Subir a GitHub**:
+   ```bash
+   git init
+   git add .
+   git commit -m "Preparar para producción"
+   git push origin main
+   ```
+
+3. **Configurar en Render** (NO requiere tarjeta de crédito):
+   - Ve a [render.com](https://render.com)
+   - Clic en "Get Started for Free"
+   - Conecta tu repositorio de GitHub
+   - Selecciona plan **"Free"**
+   - Agrega variables de entorno
+   - ¡Despliega!
+
+4. **Variables de entorno requeridas**:
+   ```
+   SUPABASE_URL=https://xxxxxx.supabase.co
+   SUPABASE_KEY=eyJhbGc...
+   SUPABASE_SERVICE_KEY=eyJhbGc...
+   SECRET_KEY=tu_clave_generada_segura
+   ALGORITHM=HS256
+   ENVIRONMENT=production
+   ALLOWED_ORIGINS=https://tu-app.onrender.com
+   ```
+
+### Generar SECRET_KEY
+```python
+import secrets
+print(secrets.token_urlsafe(32))
+```
+
+Copia la salida y úsala como `SECRET_KEY` en las variables de entorno.
+
+---
+
+### 💡 Notas sobre Render Free
+
+**Limitación:** La app se "duerme" después de 15 minutos sin actividad.
+- Primera carga: 30-60 segundos (mientras despierta)
+- Cargas subsecuentes: Rápidas (mientras esté activa)
+
+**Solución:** Para mantenerla siempre activa, usa [UptimeRobot](https://uptimerobot.com) (gratis) para hacer ping cada 14 minutos.
+
+**Alternativa:** Usa Fly.io (gratis, siempre activo, pero requiere tarjeta de crédito)
 
 ## 📄 Licencia
 
-MIT License - Libre para uso personal y comercial.
+Proyecto de desarrollo profesional - Uso educativo
 
 ---
 
 **¡Listo para usar! 🎉**
 
-Cualquier duda, revisa la documentación o contacta al equipo de desarrollo.
+Para cualquier problema, revisa la sección de "Solución de Problemas" o contacta al equipo de desarrollo.

@@ -27,6 +27,10 @@ from passlib.context import CryptContext
 
 load_dotenv()
 
+# Configuración de entorno
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development") == "production"
+ALLOWED_ORIGINS_LIST = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000").split(",")
+
 # Configuración de Supabase
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -44,6 +48,16 @@ SUPABASE_BUCKET_NAME = os.getenv("SUPABASE_BUCKET_NAME", "evidencias")
 
 # Crear directorio de uploads
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Advertencia de seguridad en producción
+if IS_PRODUCTION and SECRET_KEY == "tu-secret-key-super-segura":
+    print("\n" + "="*70)
+    print("⚠️  ADVERTENCIA DE SEGURIDAD")
+    print("="*70)
+    print("Estás usando el SECRET_KEY por defecto en producción.")
+    print("Por favor, genera un SECRET_KEY seguro y configúralo en las")
+    print("variables de entorno de tu plataforma de hosting.")
+    print("="*70 + "\n")
 
 # Cliente Supabase
 try:
@@ -82,13 +96,16 @@ security = HTTPBearer()
 app = FastAPI(
     title="Plan de Desarrollo Profesional",
     description="API para gestión de planes de desarrollo profesional",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url=None if IS_PRODUCTION else "/docs",  # Desactivar docs en producción
+    redoc_url=None if IS_PRODUCTION else "/redoc",  # Desactivar redoc en producción
+    openapi_url=None if IS_PRODUCTION else "/openapi.json"  # Desactivar OpenAPI en producción
 )
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    allow_origins=ALLOWED_ORIGINS_LIST,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -118,9 +135,21 @@ class Token(BaseModel):
     user_id: str
     email: str
 
+class CompetenciaProgress(BaseModel):
+    nombre: str
+    progreso_inicio: int = 0  # 0-100
+    progreso_actual: int = 0  # 0-100
+    progreso_fin: Optional[int] = None  # 0-100
+    evidencias: Optional[List[str]] = []
+    notas: Optional[str] = None
+
 class MonthlyPlan(BaseModel):
     mes: date
-    competencias: Optional[List[str]] = []
+    competencias_trabajar: Optional[str] = None  # Texto libre
+    competencias: Optional[List[dict]] = []  # Lista de competencias con progreso
+    que_quiero_lograr: Optional[str] = None
+    mis_fortalezas: Optional[str] = None
+    mis_debilidades: Optional[str] = None
     objetivos: Optional[str] = None
     fortalezas: Optional[List[str]] = []
     debilidades: Optional[List[str]] = []
@@ -131,9 +160,9 @@ class MonthlyReview(BaseModel):
     monthly_plan_id: str
     que_mejore: Optional[str] = None
     que_falta_mejorar: Optional[str] = None
-    habilidades_desarrolladas: Optional[List[str]] = []
-    propositos_proximo_mes: Optional[List[str]] = []
+    habilidades_desarrolladas: Optional[str] = None
     momento_memorable: Optional[str] = None
+    propositos_proximo_mes: Optional[List[str]] = []
 
 class WeeklyLog(BaseModel):
     semana_inicio: date
@@ -146,27 +175,105 @@ class WeeklyLog(BaseModel):
     nivel_satisfaccion: Optional[int] = Field(None, ge=1, le=5)
 
 class DailyTask(BaseModel):
-    fecha: date
     titulo: str
     descripcion: Optional[str] = None
-    categoria: Optional[str] = "personal"
-    estado: Optional[str] = "pendiente"
-    prioridad: Optional[str] = "media"
+
+    # Fechas (solo inicio y fin)
+    fecha_inicio: date  # Obligatorio
+    fecha_fin: date  # Obligatorio
+
+    # Clasificación y categorización
+    clasificacion: Optional[str] = None  # desarrollo, investigacion, documentacion, etc.
+    categoria: Optional[str] = "personal"  # aprendizaje, compromiso, competencia, personal
+
+    # Estado y prioridad
+    estado: Optional[str] = "pendiente"  # pendiente, en_progreso, completada, cancelada
+    prioridad: Optional[str] = "media"  # baja, media, alta
+
+    # Progreso y tiempo
+    progreso: Optional[int] = 0  # 0-100
     tiempo_estimado: Optional[int] = None
     tiempo_real: Optional[int] = None
+
+    # Jerarquía
+    parent_task_id: Optional[str] = None  # UUID de la tarea padre
+    es_macrotarea: Optional[bool] = False
+
+    # Otros
     orden: Optional[int] = 0
     tags: Optional[List[str]] = []
     notas: Optional[str] = None
+    observaciones: Optional[str] = None
 
 class TaskUpdate(BaseModel):
     titulo: Optional[str] = None
     descripcion: Optional[str] = None
+
+    # Fechas
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+
+    # Clasificación y categorización
+    clasificacion: Optional[str] = None
     categoria: Optional[str] = None
+
+    # Estado y prioridad
     estado: Optional[str] = None
     prioridad: Optional[str] = None
+
+    # Progreso y tiempo
+    progreso: Optional[int] = None
+    tiempo_estimado: Optional[int] = None
     tiempo_real: Optional[int] = None
+
+    # Jerarquía
+    parent_task_id: Optional[str] = None
+    es_macrotarea: Optional[bool] = None
+
+    # Otros
     orden: Optional[int] = None
     notas: Optional[str] = None
+    observaciones: Optional[str] = None
+
+class Actividad(BaseModel):
+    titulo: str
+    descripcion: Optional[str] = None
+    fecha_inicio: date
+    fecha_fin: date
+    clasificacion: Optional[str] = None  # proyecto, curso, certificacion, objetivo
+    estado: Optional[str] = "en_progreso"  # en_progreso, completada, pausada, cancelada
+    prioridad: Optional[str] = "media"  # baja, media, alta
+    grupo: Optional[str] = None  # Para agrupar actividades relacionadas
+    color: Optional[str] = None  # Color para identificar visualmente
+    progreso: Optional[int] = 0  # Porcentaje 0-100
+    tags: Optional[List[str]] = []
+    notas: Optional[str] = None
+
+class ActividadUpdate(BaseModel):
+    titulo: Optional[str] = None
+    descripcion: Optional[str] = None
+    fecha_inicio: Optional[date] = None
+    fecha_fin: Optional[date] = None
+    clasificacion: Optional[str] = None
+    estado: Optional[str] = None
+    prioridad: Optional[str] = None
+    grupo: Optional[str] = None
+    color: Optional[str] = None
+    progreso: Optional[int] = None
+    notas: Optional[str] = None
+
+class UserConfig(BaseModel):
+    clasificaciones: Optional[List[str]] = [
+        'desarrollo', 'investigacion', 'documentacion', 'reunion',
+        'estudio', 'revision', 'planificacion', 'testing'
+    ]
+    categorias: Optional[List[str]] = [
+        'aprendizaje', 'compromiso', 'competencia', 'personal'
+    ]
+
+class UserConfigUpdate(BaseModel):
+    clasificaciones: Optional[List[str]] = None
+    categorias: Optional[List[str]] = None
 
 # ============================================
 # AUTENTICACIÓN
@@ -269,14 +376,18 @@ async def create_monthly_plan(plan: MonthlyPlan, user_id: str = Depends(verify_t
     """Crear plan mensual"""
     data = plan.dict()
     data["user_id"] = user_id
-    
-    response = supabase.table("monthly_plans").insert(data).execute()
+
+    # Convertir fecha a string para JSON
+    if isinstance(data.get("mes"), date):
+        data["mes"] = data["mes"].isoformat()
+
+    response = supabase_admin.table("monthly_plans").insert(data).execute()
     return response.data[0]
 
 @app.get("/api/monthly/plans")
 async def get_monthly_plans(user_id: str = Depends(verify_token), limit: int = 12):
     """Obtener planes mensuales del usuario"""
-    response = supabase.table("monthly_plans") \
+    response = supabase_admin.table("monthly_plans") \
         .select("*") \
         .eq("user_id", user_id) \
         .order("mes", desc=True) \
@@ -287,7 +398,7 @@ async def get_monthly_plans(user_id: str = Depends(verify_token), limit: int = 1
 @app.get("/api/monthly/plans/{plan_id}")
 async def get_monthly_plan(plan_id: str, user_id: str = Depends(verify_token)):
     """Obtener plan mensual específico"""
-    response = supabase.table("monthly_plans") \
+    response = supabase_admin.table("monthly_plans") \
         .select("*") \
         .eq("id", plan_id) \
         .eq("user_id", user_id) \
@@ -298,8 +409,14 @@ async def get_monthly_plan(plan_id: str, user_id: str = Depends(verify_token)):
 @app.put("/api/monthly/plans/{plan_id}")
 async def update_monthly_plan(plan_id: str, plan: MonthlyPlan, user_id: str = Depends(verify_token)):
     """Actualizar plan mensual"""
-    response = supabase.table("monthly_plans") \
-        .update(plan.dict(exclude_unset=True)) \
+    data = plan.dict(exclude_unset=True)
+
+    # Convertir fecha a string para JSON
+    if isinstance(data.get("mes"), date):
+        data["mes"] = data["mes"].isoformat()
+
+    response = supabase_admin.table("monthly_plans") \
+        .update(data) \
         .eq("id", plan_id) \
         .eq("user_id", user_id) \
         .execute()
@@ -311,19 +428,106 @@ async def create_monthly_review(review: MonthlyReview, user_id: str = Depends(ve
     data = review.dict()
     data["user_id"] = user_id
     
-    response = supabase.table("monthly_reviews").insert(data).execute()
+    response = supabase_admin.table("monthly_reviews").insert(data).execute()
     return response.data[0]
 
 @app.get("/api/monthly/reviews/{plan_id}")
 async def get_monthly_review(plan_id: str, user_id: str = Depends(verify_token)):
     """Obtener evaluación mensual"""
-    response = supabase.table("monthly_reviews") \
+    response = supabase_admin.table("monthly_reviews") \
         .select("*") \
         .eq("monthly_plan_id", plan_id) \
         .eq("user_id", user_id) \
         .single() \
         .execute()
     return response.data
+
+@app.put("/api/monthly/plans/{plan_id}/competencias")
+async def update_competencias_progress(
+    plan_id: str,
+    competencias: List[dict],
+    user_id: str = Depends(verify_token)
+):
+    """Actualizar progreso de competencias de un plan mensual"""
+    response = supabase_admin.table("monthly_plans") \
+        .update({"competencias": competencias}) \
+        .eq("id", plan_id) \
+        .eq("user_id", user_id) \
+        .execute()
+    return response.data[0]
+
+@app.get("/api/monthly/evolution")
+async def get_competencias_evolution(user_id: str = Depends(verify_token), months: int = 6):
+    """Obtener evolución de competencias en los últimos N meses"""
+    # Obtener planes de los últimos N meses
+    response = supabase_admin.table("monthly_plans") \
+        .select("*") \
+        .eq("user_id", user_id) \
+        .order("mes", desc=True) \
+        .limit(months) \
+        .execute()
+
+    plans = response.data
+
+    # Compilar evolución de competencias
+    evolution = {}
+    for plan in plans:
+        if plan.get("competencias"):
+            mes = plan["mes"]
+            for comp in plan["competencias"]:
+                nombre = comp.get("nombre")
+                if nombre:
+                    if nombre not in evolution:
+                        evolution[nombre] = []
+                    evolution[nombre].append({
+                        "mes": mes,
+                        "progreso_inicio": comp.get("progreso_inicio", 0),
+                        "progreso_actual": comp.get("progreso_actual", 0),
+                        "progreso_fin": comp.get("progreso_fin")
+                    })
+
+    return {
+        "evolution": evolution,
+        "plans": plans
+    }
+
+@app.get("/api/monthly/comparison/{plan_id}")
+async def get_plan_comparison(plan_id: str, user_id: str = Depends(verify_token)):
+    """Obtener comparación inicio vs fin de mes para un plan específico"""
+    # Obtener el plan
+    plan_response = supabase_admin.table("monthly_plans") \
+        .select("*") \
+        .eq("id", plan_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+
+    plan = plan_response.data
+
+    # Obtener la review
+    review_response = supabase_admin.table("monthly_reviews") \
+        .select("*") \
+        .eq("monthly_plan_id", plan_id) \
+        .eq("user_id", user_id) \
+        .execute()
+
+    review = review_response.data[0] if review_response.data else None
+
+    # Calcular métricas de comparación
+    competencias = plan.get("competencias", [])
+    comparison = {
+        "plan": plan,
+        "review": review,
+        "competencias_stats": {
+            "total": len(competencias),
+            "con_progreso": len([c for c in competencias if c.get("progreso_fin") is not None]),
+            "promedio_progreso_inicio": sum([c.get("progreso_inicio", 0) for c in competencias]) / len(competencias) if competencias else 0,
+            "promedio_progreso_fin": sum([c.get("progreso_fin", 0) for c in competencias if c.get("progreso_fin") is not None]) / len([c for c in competencias if c.get("progreso_fin") is not None]) if [c for c in competencias if c.get("progreso_fin") is not None] else 0,
+            "competencias": competencias
+        }
+    }
+
+    return comparison
 
 # ============================================
 # RUTAS - BITÁCORAS SEMANALES
@@ -334,14 +538,20 @@ async def create_weekly_log(log: WeeklyLog, user_id: str = Depends(verify_token)
     """Crear bitácora semanal"""
     data = log.dict()
     data["user_id"] = user_id
-    
-    response = supabase.table("weekly_logs").insert(data).execute()
+
+    # Convertir fechas a string para JSON
+    if isinstance(data.get("semana_inicio"), date):
+        data["semana_inicio"] = data["semana_inicio"].isoformat()
+    if isinstance(data.get("semana_fin"), date):
+        data["semana_fin"] = data["semana_fin"].isoformat()
+
+    response = supabase_admin.table("weekly_logs").insert(data).execute()
     return response.data[0]
 
 @app.get("/api/weekly/logs")
 async def get_weekly_logs(user_id: str = Depends(verify_token), limit: int = 20):
     """Obtener bitácoras semanales"""
-    response = supabase.table("weekly_logs") \
+    response = supabase_admin.table("weekly_logs") \
         .select("*") \
         .eq("user_id", user_id) \
         .order("semana_inicio", desc=True) \
@@ -352,7 +562,7 @@ async def get_weekly_logs(user_id: str = Depends(verify_token), limit: int = 20)
 @app.get("/api/weekly/logs/{log_id}")
 async def get_weekly_log(log_id: str, user_id: str = Depends(verify_token)):
     """Obtener bitácora semanal específica"""
-    response = supabase.table("weekly_logs") \
+    response = supabase_admin.table("weekly_logs") \
         .select("*") \
         .eq("id", log_id) \
         .eq("user_id", user_id) \
@@ -369,34 +579,48 @@ async def create_task(task: DailyTask, user_id: str = Depends(verify_token)):
     """Crear tarea"""
     data = task.dict()
     data["user_id"] = user_id
-    
-    response = supabase.table("daily_tasks").insert(data).execute()
+
+    # Convertir fechas a string para JSON
+    if isinstance(data.get("fecha_inicio"), date):
+        data["fecha_inicio"] = data["fecha_inicio"].isoformat()
+    if isinstance(data.get("fecha_fin"), date):
+        data["fecha_fin"] = data["fecha_fin"].isoformat()
+
+    # Limpiar valores vacíos para campos UUID (evitar error de PostgreSQL)
+    if data.get("parent_task_id") == "" or data.get("parent_task_id") is None:
+        data["parent_task_id"] = None
+
+    # Limpiar otros campos opcionales vacíos
+    if data.get("clasificacion") == "":
+        data["clasificacion"] = None
+
+    response = supabase_admin.table("daily_tasks").insert(data).execute()
     return response.data[0]
 
 @app.get("/api/tasks")
 async def get_tasks(
     user_id: str = Depends(verify_token),
-    fecha: Optional[date] = None,
     estado: Optional[str] = None,
-    categoria: Optional[str] = None
+    categoria: Optional[str] = None,
+    clasificacion: Optional[str] = None
 ):
     """Obtener tareas con filtros"""
-    query = supabase.table("daily_tasks").select("*").eq("user_id", user_id)
-    
-    if fecha:
-        query = query.eq("fecha", fecha.isoformat())
+    query = supabase_admin.table("daily_tasks").select("*").eq("user_id", user_id)
+
     if estado:
         query = query.eq("estado", estado)
     if categoria:
         query = query.eq("categoria", categoria)
-    
+    if clasificacion:
+        query = query.eq("clasificacion", clasificacion)
+
     response = query.order("orden").order("created_at").execute()
     return response.data
 
 @app.get("/api/tasks/{task_id}")
 async def get_task(task_id: str, user_id: str = Depends(verify_token)):
     """Obtener tarea específica"""
-    response = supabase.table("daily_tasks") \
+    response = supabase_admin.table("daily_tasks") \
         .select("*") \
         .eq("id", task_id) \
         .eq("user_id", user_id) \
@@ -408,27 +632,194 @@ async def get_task(task_id: str, user_id: str = Depends(verify_token)):
 async def update_task(task_id: str, task: TaskUpdate, user_id: str = Depends(verify_token)):
     """Actualizar tarea"""
     data = task.dict(exclude_unset=True)
-    
-    # Si se marca como completada, agregar timestamp
+
+    # Convertir fechas a string para JSON
+    if isinstance(data.get("fecha_inicio"), date):
+        data["fecha_inicio"] = data["fecha_inicio"].isoformat()
+    if isinstance(data.get("fecha_fin"), date):
+        data["fecha_fin"] = data["fecha_fin"].isoformat()
+
+    # Si se marca como completada, agregar timestamp y progreso 100%
     if data.get("estado") == "completada":
         data["completed_at"] = datetime.utcnow().isoformat()
-    
-    response = supabase.table("daily_tasks") \
+        data["progreso"] = 100
+
+    response = supabase_admin.table("daily_tasks") \
         .update(data) \
         .eq("id", task_id) \
         .eq("user_id", user_id) \
         .execute()
     return response.data[0]
 
+@app.get("/api/tasks/{task_id}/subtareas")
+async def get_subtareas(task_id: str, user_id: str = Depends(verify_token)):
+    """Obtener todas las subtareas de una macrotarea"""
+    # Primero verificar que la tarea pertenece al usuario
+    parent_task = supabase_admin.table("daily_tasks") \
+        .select("*") \
+        .eq("id", task_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+
+    if not parent_task.data:
+        raise HTTPException(404, "Tarea no encontrada")
+
+    # Obtener subtareas
+    subtareas = supabase_admin.table("daily_tasks") \
+        .select("*") \
+        .eq("parent_task_id", task_id) \
+        .order("orden") \
+        .order("created_at") \
+        .execute()
+
+    return subtareas.data
+
+@app.put("/api/tasks/{task_id}/recalcular-progreso")
+async def recalcular_progreso(task_id: str, user_id: str = Depends(verify_token)):
+    """Recalcular progreso de una macrotarea basándose en sus subtareas"""
+    # Verificar que la tarea existe y pertenece al usuario
+    task = supabase_admin.table("daily_tasks") \
+        .select("*") \
+        .eq("id", task_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+
+    if not task.data:
+        raise HTTPException(404, "Tarea no encontrada")
+
+    if not task.data.get("es_macrotarea"):
+        raise HTTPException(400, "La tarea no es una macrotarea")
+
+    # Obtener subtareas
+    subtareas = supabase_admin.table("daily_tasks") \
+        .select("progreso") \
+        .eq("parent_task_id", task_id) \
+        .execute()
+
+    if not subtareas.data:
+        return {"message": "No hay subtareas", "progreso": 0}
+
+    # Calcular promedio
+    total = sum(st.get("progreso", 0) for st in subtareas.data)
+    promedio = total // len(subtareas.data)
+
+    # Actualizar macrotarea
+    updated = supabase_admin.table("daily_tasks") \
+        .update({"progreso": promedio}) \
+        .eq("id", task_id) \
+        .execute()
+
+    return {"message": "Progreso recalculado", "progreso": promedio}
+
 @app.delete("/api/tasks/{task_id}")
 async def delete_task(task_id: str, user_id: str = Depends(verify_token)):
     """Eliminar tarea"""
-    supabase.table("daily_tasks") \
+    supabase_admin.table("daily_tasks") \
         .delete() \
         .eq("id", task_id) \
         .eq("user_id", user_id) \
         .execute()
     return {"message": "Tarea eliminada"}
+
+# ============================================
+# RUTAS - ACTIVIDADES
+# ============================================
+
+@app.post("/api/actividades")
+async def create_actividad(actividad: Actividad, user_id: str = Depends(verify_token)):
+    """Crear actividad"""
+    data = actividad.dict()
+    data["user_id"] = user_id
+
+    # Convertir fechas a string para JSON
+    if isinstance(data.get("fecha_inicio"), date):
+        data["fecha_inicio"] = data["fecha_inicio"].isoformat()
+    if isinstance(data.get("fecha_fin"), date):
+        data["fecha_fin"] = data["fecha_fin"].isoformat()
+
+    response = supabase_admin.table("actividades").insert(data).execute()
+    return response.data[0]
+
+@app.get("/api/actividades")
+async def get_actividades(
+    user_id: str = Depends(verify_token),
+    estado: Optional[str] = None,
+    clasificacion: Optional[str] = None,
+    grupo: Optional[str] = None
+):
+    """Obtener actividades con filtros opcionales"""
+    query = supabase_admin.table("actividades").select("*").eq("user_id", user_id)
+
+    if estado:
+        query = query.eq("estado", estado)
+    if clasificacion:
+        query = query.eq("clasificacion", clasificacion)
+    if grupo:
+        query = query.eq("grupo", grupo)
+
+    response = query.order("fecha_inicio", desc=True).execute()
+    return response.data
+
+@app.get("/api/actividades/{actividad_id}")
+async def get_actividad(actividad_id: str, user_id: str = Depends(verify_token)):
+    """Obtener actividad específica"""
+    response = supabase_admin.table("actividades") \
+        .select("*") \
+        .eq("id", actividad_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+    return response.data
+
+@app.put("/api/actividades/{actividad_id}")
+async def update_actividad(
+    actividad_id: str,
+    actividad: ActividadUpdate,
+    user_id: str = Depends(verify_token)
+):
+    """Actualizar actividad"""
+    data = actividad.dict(exclude_unset=True)
+
+    # Convertir fechas a string para JSON
+    if isinstance(data.get("fecha_inicio"), date):
+        data["fecha_inicio"] = data["fecha_inicio"].isoformat()
+    if isinstance(data.get("fecha_fin"), date):
+        data["fecha_fin"] = data["fecha_fin"].isoformat()
+
+    response = supabase_admin.table("actividades") \
+        .update(data) \
+        .eq("id", actividad_id) \
+        .eq("user_id", user_id) \
+        .execute()
+    return response.data[0]
+
+@app.delete("/api/actividades/{actividad_id}")
+async def delete_actividad(actividad_id: str, user_id: str = Depends(verify_token)):
+    """Eliminar actividad"""
+    supabase_admin.table("actividades") \
+        .delete() \
+        .eq("id", actividad_id) \
+        .eq("user_id", user_id) \
+        .execute()
+    return {"message": "Actividad eliminada"}
+
+@app.get("/api/actividades/grupos/list")
+async def get_grupos_actividades(user_id: str = Depends(verify_token)):
+    """Obtener lista de grupos únicos de actividades del usuario"""
+    response = supabase_admin.table("actividades") \
+        .select("grupo") \
+        .eq("user_id", user_id) \
+        .execute()
+
+    # Extraer grupos únicos (sin None/null)
+    grupos = set()
+    for item in response.data:
+        if item.get("grupo"):
+            grupos.add(item["grupo"])
+
+    return {"grupos": sorted(list(grupos))}
 
 # ============================================
 # RUTAS - EVIDENCIAS (ARCHIVOS)
@@ -493,7 +884,7 @@ async def upload_evidencia(
             "descripcion": descripcion
         }
         
-        response = supabase.table("evidencias").insert(evidencia_data).execute()
+        response = supabase_admin.table("evidencias").insert(evidencia_data).execute()
         
         return response.data[0]
     
@@ -506,7 +897,7 @@ async def get_evidencias(
     task_id: Optional[str] = None
 ):
     """Obtener evidencias"""
-    query = supabase.table("evidencias").select("*").eq("user_id", user_id)
+    query = supabase_admin.table("evidencias").select("*").eq("user_id", user_id)
     
     if task_id:
         query = query.eq("task_id", task_id)
@@ -518,7 +909,7 @@ async def get_evidencias(
 async def delete_evidencia(evidencia_id: str, user_id: str = Depends(verify_token)):
     """Eliminar evidencia"""
     # Obtener evidencia
-    evidencia = supabase.table("evidencias") \
+    evidencia = supabase_admin.table("evidencias") \
         .select("*") \
         .eq("id", evidencia_id) \
         .eq("user_id", user_id) \
@@ -533,9 +924,113 @@ async def delete_evidencia(evidencia_id: str, user_id: str = Depends(verify_toke
         pass
     
     # Eliminar de BD
-    supabase.table("evidencias").delete().eq("id", evidencia_id).execute()
+    supabase_admin.table("evidencias").delete().eq("id", evidencia_id).execute()
     
     return {"message": "Evidencia eliminada"}
+
+# ============================================
+# RUTAS - CONFIGURACIÓN DE USUARIO
+# ============================================
+
+@app.get("/api/config")
+async def get_user_config(user_id: str = Depends(verify_token)):
+    """Obtener configuración del usuario (clasificaciones y categorías personalizadas)"""
+    try:
+        # Intentar obtener configuración existente
+        response = supabase_admin.table("user_config") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .single() \
+            .execute()
+
+        return response.data
+    except Exception as e:
+        # Si no existe, crear con valores por defecto
+        default_config = {
+            "user_id": user_id,
+            "clasificaciones": [
+                'desarrollo', 'investigacion', 'documentacion', 'reunion',
+                'estudio', 'revision', 'planificacion', 'testing'
+            ],
+            "categorias": [
+                'aprendizaje', 'compromiso', 'competencia', 'personal'
+            ]
+        }
+
+        response = supabase_admin.table("user_config").insert(default_config).execute()
+        return response.data[0]
+
+@app.put("/api/config")
+async def update_user_config(config: UserConfigUpdate, user_id: str = Depends(verify_token)):
+    """Actualizar configuración del usuario"""
+    data = config.dict(exclude_unset=True)
+
+    # Intentar actualizar
+    try:
+        response = supabase_admin.table("user_config") \
+            .update(data) \
+            .eq("user_id", user_id) \
+            .execute()
+
+        if response.data:
+            return response.data[0]
+        else:
+            # Si no existe, crear
+            data["user_id"] = user_id
+            response = supabase_admin.table("user_config").insert(data).execute()
+            return response.data[0]
+    except Exception as e:
+        raise HTTPException(500, f"Error al actualizar configuración: {str(e)}")
+
+@app.post("/api/config/clasificaciones")
+async def add_clasificacion(clasificacion: dict, user_id: str = Depends(verify_token)):
+    """Agregar una nueva clasificación personalizada"""
+    nueva_clasificacion = clasificacion.get("nombre")
+
+    if not nueva_clasificacion:
+        raise HTTPException(400, "Nombre de clasificación requerido")
+
+    # Obtener configuración actual
+    config = await get_user_config(user_id)
+    clasificaciones_actuales = config.get("clasificaciones", [])
+
+    # Agregar si no existe
+    if nueva_clasificacion not in clasificaciones_actuales:
+        clasificaciones_actuales.append(nueva_clasificacion)
+
+        response = supabase_admin.table("user_config") \
+            .update({"clasificaciones": clasificaciones_actuales}) \
+            .eq("user_id", user_id) \
+            .execute()
+
+        return {"message": "Clasificación agregada", "clasificaciones": clasificaciones_actuales}
+
+    return {"message": "Clasificación ya existe", "clasificaciones": clasificaciones_actuales}
+
+@app.post("/api/config/categorias")
+async def add_categoria(categoria: dict, user_id: str = Depends(verify_token)):
+    """Agregar una nueva categoría personalizada"""
+    nueva_categoria = categoria.get("nombre")
+
+    if not nueva_categoria:
+        raise HTTPException(400, "Nombre de categoría requerido")
+
+    # Obtener configuración actual
+    config = await get_user_config(user_id)
+    categorias_actuales = config.get("categorias", [])
+
+    # Agregar si no existe
+    if nueva_categoria not in categorias_actuales:
+        categorias_actuales.append(nueva_categoria)
+
+        response = supabase_admin.table("user_config") \
+            .update({"categorias": categorias_actuales}) \
+            .eq("user_id", user_id) \
+            .execute()
+
+        return {"message": "Categoría agregada", "categorias": categorias_actuales}
+
+    return {"message": "Categoría ya existe", "categorias": categorias_actuales}
 
 # ============================================
 # RUTAS - DASHBOARD Y MÉTRICAS
@@ -547,20 +1042,20 @@ async def get_dashboard_summary(user_id: str = Depends(verify_token)):
     today = date.today()
     first_day_month = today.replace(day=1)
     
-    # Tareas del mes
-    tasks_month = supabase.table("daily_tasks") \
+    # Tareas del mes (filtra por fecha_inicio >= primer día del mes)
+    tasks_month = supabase_admin.table("daily_tasks") \
         .select("*") \
         .eq("user_id", user_id) \
-        .gte("fecha", first_day_month.isoformat()) \
+        .gte("fecha_inicio", first_day_month.isoformat()) \
         .execute()
-    
+
     tasks_data = tasks_month.data
     total_tasks = len(tasks_data)
     completed_tasks = len([t for t in tasks_data if t["estado"] == "completada"])
     pending_tasks = len([t for t in tasks_data if t["estado"] == "pendiente"])
     
     # Plan mensual actual
-    current_plan = supabase.table("monthly_plans") \
+    current_plan = supabase_admin.table("monthly_plans") \
         .select("*") \
         .eq("user_id", user_id) \
         .gte("mes", first_day_month.isoformat()) \
@@ -568,40 +1063,43 @@ async def get_dashboard_summary(user_id: str = Depends(verify_token)):
         .execute()
     
     # Bitácoras del mes
-    weekly_logs = supabase.table("weekly_logs") \
+    weekly_logs = supabase_admin.table("weekly_logs") \
         .select("*") \
         .eq("user_id", user_id) \
         .gte("semana_inicio", first_day_month.isoformat()) \
         .execute()
     
     return {
-        "total_tasks": total_tasks,
-        "completed_tasks": completed_tasks,
-        "pending_tasks": pending_tasks,
-        "completion_rate": round(completed_tasks / total_tasks * 100, 1) if total_tasks > 0 else 0,
-        "current_month_plan": current_plan.data[0] if current_plan.data else None,
-        "weekly_logs_count": len(weekly_logs.data),
+        "totalTasks": total_tasks,
+        "completedTasks": completed_tasks,
+        "pendingTasks": pending_tasks,
+        "completionRate": round(completed_tasks / total_tasks * 100, 1) if total_tasks > 0 else 0,
+        "currentMonthPlan": current_plan.data[0] if current_plan.data else None,
+        "weeklyLogsCount": len(weekly_logs.data),
         "today": today.isoformat()
     }
 
 @app.get("/api/dashboard/tasks-by-day")
 async def get_tasks_by_day(user_id: str = Depends(verify_token), days: int = 7):
-    """Obtener tareas agrupadas por día (últimos N días)"""
+    """Obtener tareas agrupadas por día de inicio (últimos N días)"""
     start_date = date.today() - timedelta(days=days)
-    
-    tasks = supabase.table("daily_tasks") \
+
+    tasks = supabase_admin.table("daily_tasks") \
         .select("*") \
         .eq("user_id", user_id) \
-        .gte("fecha", start_date.isoformat()) \
+        .gte("fecha_inicio", start_date.isoformat()) \
         .execute()
-    
-    # Agrupar por fecha
+
+    # Agrupar por fecha_inicio
     tasks_by_day = {}
     for task in tasks.data:
-        task_date = task["fecha"]
+        task_date = task.get("fecha_inicio")
+        if not task_date:
+            continue
+
         if task_date not in tasks_by_day:
             tasks_by_day[task_date] = {"total": 0, "completadas": 0, "pendientes": 0}
-        
+
         tasks_by_day[task_date]["total"] += 1
         if task["estado"] == "completada":
             tasks_by_day[task_date]["completadas"] += 1
@@ -613,7 +1111,7 @@ async def get_tasks_by_day(user_id: str = Depends(verify_token), days: int = 7):
 @app.get("/api/competencias")
 async def get_competencias():
     """Obtener catálogo de competencias"""
-    response = supabase.table("competencias").select("*").execute()
+    response = supabase_admin.table("competencias").select("*").execute()
     return response.data
 
 # ============================================

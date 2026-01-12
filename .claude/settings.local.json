@@ -18,7 +18,8 @@
       "Bash(curl:*)",
       "Bash(python:*)",
       "Bash(pip install:*)",
-      "Bash(pip uninstall:*)"
+      "Bash(pip uninstall:*)",
+      "Bash(grep:*)"
     ]
   }
 }
