@@ -491,7 +491,7 @@
                         <label class="label">
                             <span class="label-text font-semibold">Seleccionar Plan:</span>
                         </label>
-                        <select x-model="currentPlanId" @change="loadPlanComparison(currentPlanId)" class="select select-bordered flex-1">
+                        <select x-model="currentPlanId" @change="loadExistingPlan(currentPlanId)" class="select select-bordered flex-1">
                             <template x-for="plan in monthlyPlans" :key="plan.id">
                                 <option :value="plan.id" x-text="formatDate(plan.mes)"></option>
                             </template>
@@ -537,36 +537,56 @@
                                 <label class="label">
                                     <span class="label-text">Mes</span>
                                 </label>
-                                <input type="date" x-model="monthlyPlan.mes" class="input input-bordered" />
+                                <input type="date" x-model="monthlyPlan.mes" class="input input-bordered" :disabled="!isEditMode" />
                             </div>
                             <div class="form-control">
                                 <label class="label">
                                     <span class="label-text">Competencias a Trabajar</span>
                                 </label>
-                                <textarea x-model="monthlyPlan.competencias_trabajar" class="textarea textarea-bordered" placeholder="Comunicación, Liderazgo, etc." rows="3"></textarea>
+                                <textarea x-model="monthlyPlan.competencias_trabajar" class="textarea textarea-bordered" placeholder="Comunicación, Liderazgo, etc." rows="3" :disabled="!isEditMode"></textarea>
                             </div>
                             <div class="form-control">
                                 <label class="label">
                                     <span class="label-text">¿Qué quiero lograr?</span>
                                 </label>
-                                <textarea x-model="monthlyPlan.que_quiero_lograr" class="textarea textarea-bordered" placeholder="Mis objetivos del mes..." rows="4"></textarea>
+                                <textarea x-model="monthlyPlan.que_quiero_lograr" class="textarea textarea-bordered" placeholder="Mis objetivos del mes..." rows="4" :disabled="!isEditMode"></textarea>
                             </div>
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="form-control">
                                     <label class="label">
                                         <span class="label-text">Mis Fortalezas 💪</span>
                                     </label>
-                                    <textarea x-model="monthlyPlan.mis_fortalezas" class="textarea textarea-bordered" rows="3"></textarea>
+                                    <textarea x-model="monthlyPlan.mis_fortalezas" class="textarea textarea-bordered" rows="3" :disabled="!isEditMode"></textarea>
                                 </div>
                                 <div class="form-control">
                                     <label class="label">
                                         <span class="label-text">Mis Debilidades 🎯</span>
                                     </label>
-                                    <textarea x-model="monthlyPlan.mis_debilidades" class="textarea textarea-bordered" rows="3"></textarea>
+                                    <textarea x-model="monthlyPlan.mis_debilidades" class="textarea textarea-bordered" rows="3" :disabled="!isEditMode"></textarea>
                                 </div>
                             </div>
-                            <button class="btn btn-primary mt-4" @click="saveMonthlyPlan">
-                                <i class="fas fa-save"></i> Guardar Plan
+
+                            <!-- Modo Visualización -->
+                            <div class="flex gap-2 mt-4" x-show="!isEditMode && viewingPlanId">
+                                <button class="btn btn-primary flex-1" @click="enableEditMode()">
+                                    <i class="fas fa-edit"></i> Editar Plan
+                                </button>
+                            </div>
+
+                            <!-- Modo Edición (plan existente) -->
+                            <div class="flex gap-2 mt-4" x-show="isEditMode && !isCreatingNewPlan">
+                                <button class="btn btn-primary flex-1" @click="updateMonthlyPlan()">
+                                    <i class="fas fa-save"></i> Guardar Cambios
+                                </button>
+                                <button class="btn btn-ghost flex-1" @click="cancelEdit()">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </button>
+                            </div>
+
+                            <!-- Modo Creación -->
+                            <button class="btn btn-primary mt-4 btn-block" @click="saveMonthlyPlan"
+                                    x-show="isEditMode && isCreatingNewPlan">
+                                <i class="fas fa-save"></i> Crear Plan
                             </button>
                         </div>
                     </div>
@@ -582,27 +602,27 @@
                                 <label class="label">
                                     <span class="label-text">¿Qué mejoré? 📈</span>
                                 </label>
-                                <textarea x-model="monthlyReview.que_mejore" class="textarea textarea-bordered" placeholder="Mis logros..." rows="3"></textarea>
+                                <textarea x-model="monthlyReview.que_mejore" class="textarea textarea-bordered" placeholder="Mis logros..." rows="3" :disabled="!isEditMode"></textarea>
                             </div>
                             <div class="form-control">
                                 <label class="label">
                                     <span class="label-text">¿Qué me faltó mejorar? 🔍</span>
                                 </label>
-                                <textarea x-model="monthlyReview.que_falta_mejorar" class="textarea textarea-bordered" rows="3"></textarea>
+                                <textarea x-model="monthlyReview.que_falta_mejorar" class="textarea textarea-bordered" rows="3" :disabled="!isEditMode"></textarea>
                             </div>
                             <div class="form-control">
                                 <label class="label">
                                     <span class="label-text">Habilidades Desarrolladas ✨</span>
                                 </label>
-                                <input type="text" x-model="monthlyReview.habilidades_desarrolladas" class="input input-bordered" placeholder="Análisis de datos, Presentaciones..." />
+                                <input type="text" x-model="monthlyReview.habilidades_desarrolladas" class="input input-bordered" placeholder="Análisis de datos, Presentaciones..." :disabled="!isEditMode" />
                             </div>
                             <div class="form-control">
                                 <label class="label">
                                     <span class="label-text">Momento Memorable 📸</span>
                                 </label>
-                                <textarea x-model="monthlyReview.momento_memorable" class="textarea textarea-bordered" rows="2"></textarea>
+                                <textarea x-model="monthlyReview.momento_memorable" class="textarea textarea-bordered" rows="2" :disabled="!isEditMode"></textarea>
                             </div>
-                            <button class="btn btn-secondary mt-4" @click="saveMonthlyReview">
+                            <button class="btn btn-secondary mt-4" @click="saveMonthlyReview" x-show="isEditMode">
                                 <i class="fas fa-check"></i> Guardar Evaluación
                             </button>
                         </div>
@@ -1701,6 +1721,50 @@
                     }
                 },
 
+                async loadExistingPlan(planId) {
+                    if (!planId) return;
+
+                    try {
+                        const plan = await this.apiCall(`/api/monthly/plans/${planId}`);
+
+                        if (plan) {
+                            // Poblar formulario
+                            this.monthlyPlan = {
+                                mes: plan.mes,
+                                competencias_trabajar: plan.competencias_trabajar || '',
+                                competencias: plan.competencias || [],
+                                que_quiero_lograr: plan.que_quiero_lograr || '',
+                                mis_fortalezas: plan.mis_fortalezas || '',
+                                mis_debilidades: plan.mis_debilidades || ''
+                            };
+
+                            // Modo visualización
+                            this.isEditMode = false;
+                            this.isCreatingNewPlan = false;
+                            this.viewingPlanId = planId;
+
+                            await this.loadPlanComparison(planId);
+
+                            // Cargar review si existe
+                            try {
+                                const review = await this.apiCall(`/api/monthly/reviews/${planId}`);
+                                if (review) {
+                                    this.monthlyReview = {
+                                        que_mejore: review.que_mejore || '',
+                                        que_falta_mejorar: review.que_falta_mejorar || '',
+                                        habilidades_desarrolladas: review.habilidades_desarrolladas || '',
+                                        momento_memorable: review.momento_memorable || ''
+                                    };
+                                }
+                            } catch (e) {
+                                console.log('No review found');
+                            }
+                        }
+                    } catch (error) {
+                        this.showNotification('Error al cargar plan: ' + error.message, 'error');
+                    }
+                },
+
                 async loadPlanComparison(planId) {
                     try {
                         const response = await this.apiCall(`/api/monthly/comparison/${planId}`);
@@ -1741,6 +1805,42 @@
                     this.monthlyView = 'gestion';
 
                     this.showNotification('Creando nuevo plan mensual', 'info');
+                },
+
+                enableEditMode() {
+                    this.isEditMode = true;
+                    this.showNotification('Modo edición activado', 'info');
+                },
+
+                cancelEdit() {
+                    if (this.viewingPlanId) {
+                        this.loadExistingPlan(this.viewingPlanId);
+                    }
+                    this.isEditMode = false;
+                    this.showNotification('Edición cancelada', 'info');
+                },
+
+                async updateMonthlyPlan() {
+                    if (!this.viewingPlanId) {
+                        this.showNotification('Error: No hay plan para actualizar', 'error');
+                        return;
+                    }
+
+                    try {
+                        const response = await this.apiCall(
+                            `/api/monthly/plans/${this.viewingPlanId}`,
+                            'PUT',
+                            this.monthlyPlan
+                        );
+
+                        if (response) {
+                            this.showNotification('Plan actualizado exitosamente', 'success');
+                            this.isEditMode = false;
+                            await this.loadMonthlyPlans();
+                        }
+                    } catch (error) {
+                        this.showNotification('Error al actualizar: ' + error.message, 'error');
+                    }
                 },
 
                 async saveMonthlyPlan() {
