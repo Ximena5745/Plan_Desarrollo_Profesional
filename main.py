@@ -374,6 +374,21 @@ async def get_current_user(user_id: str = Depends(verify_token)):
 @app.post("/api/monthly/plans")
 async def create_monthly_plan(plan: MonthlyPlan, user_id: str = Depends(verify_token)):
     """Crear plan mensual"""
+
+    # Verificar si ya existe un plan para este mes
+    mes_str = plan.mes.isoformat() if isinstance(plan.mes, date) else plan.mes
+    existing = supabase_admin.table("monthly_plans") \
+        .select("id") \
+        .eq("user_id", user_id) \
+        .eq("mes", mes_str) \
+        .execute()
+
+    if existing.data:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ya existe un plan para el mes {plan.mes}"
+        )
+
     data = plan.dict()
     data["user_id"] = user_id
 

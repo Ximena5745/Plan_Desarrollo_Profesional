@@ -537,7 +537,18 @@
                                 <label class="label">
                                     <span class="label-text">Mes</span>
                                 </label>
-                                <input type="date" x-model="monthlyPlan.mes" class="input input-bordered" :disabled="!isEditMode" />
+                                <input type="date"
+                                       x-model="monthlyPlan.mes"
+                                       @change="checkMonthAvailability()"
+                                       class="input input-bordered"
+                                       :class="monthAlreadyExists ? 'input-error' : ''"
+                                       :disabled="!isEditMode || (!isCreatingNewPlan && viewingPlanId)" />
+                                <label class="label" x-show="monthAlreadyExists && isCreatingNewPlan">
+                                    <span class="label-text-alt text-error">
+                                        <i class="fas fa-exclamation-circle"></i>
+                                        Ya existe un plan para este mes
+                                    </span>
+                                </label>
                             </div>
                             <div class="form-control">
                                 <label class="label">
@@ -1425,6 +1436,7 @@
                 isEditMode: false,
                 isCreatingNewPlan: false,
                 viewingPlanId: null,
+                monthAlreadyExists: false,
 
                 newCompetencia: {
                     nombre: '',
@@ -1896,28 +1908,60 @@
                 },
 
                 async saveMonthlyPlan() {
+                    // Validar que se haya seleccionado un mes
+                    if (!this.monthlyPlan.mes) {
+                        this.showNotification('Por favor selecciona un mes', 'error');
+                        return;
+                    }
+
+                    // Verificar si ya existe un plan para este mes
+                    const existingPlan = this.monthlyPlans.find(p => p.mes === this.monthlyPlan.mes);
+
+                    if (existingPlan && this.isCreatingNewPlan) {
+                        const confirmed = confirm(
+                            `Ya existe un plan para ${this.formatDate(this.monthlyPlan.mes)}.\n\n` +
+                            `¿Deseas editar el plan existente?`
+                        );
+
+                        if (confirmed) {
+                            // Cambiar a modo edición del plan existente
+                            this.currentPlanId = existingPlan.id;
+                            this.viewingPlanId = existingPlan.id;
+                            this.isCreatingNewPlan = false;
+                            await this.loadExistingPlan(existingPlan.id);
+                            this.enableEditMode();
+                            return;
+                        } else {
+                            return;
+                        }
+                    }
+
                     try {
                         const response = await this.apiCall('/api/monthly/plans', 'POST', this.monthlyPlan);
 
                         if (response) {
                             this.currentPlanId = response.id;
-                            this.showNotification('Plan mensual guardado exitosamente', 'success');
-                            await this.loadDashboardData();
-                            await this.loadMonthlyPlans();
+                            this.viewingPlanId = response.id;
+                            this.isCreatingNewPlan = false;
+                            this.isEditMode = false;
 
-                            // Reset form
-                            this.monthlyPlan = {
-                                mes: new Date().toISOString().split('T')[0],
-                                competencias_trabajar: '',
-                                competencias: [],
-                                que_quiero_lograr: '',
-                                mis_fortalezas: '',
-                                mis_debilidades: ''
-                            };
+                            this.showNotification('Plan creado exitosamente', 'success');
+                            await this.loadMonthlyPlans();
                         }
                     } catch (error) {
-                        this.showNotification('Error al guardar plan mensual: ' + error.message, 'error');
+                        if (error.message && (error.message.includes('duplicate') || error.message.includes('unique'))) {
+                            this.showNotification('Ya existe un plan para este mes', 'error');
+                        } else {
+                            this.showNotification('Error: ' + error.message, 'error');
+                        }
                     }
+                },
+
+                checkMonthAvailability() {
+                    if (!this.isCreatingNewPlan) return;
+
+                    const existingPlan = this.monthlyPlans.find(p => p.mes === this.monthlyPlan.mes);
+                    this.monthAlreadyExists = !!existingPlan;
                 },
 
                 addCompetencia() {
