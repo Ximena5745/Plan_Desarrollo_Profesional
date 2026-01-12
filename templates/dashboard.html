@@ -93,6 +93,9 @@
                 <li><a @click="currentView = 'weekly'" :class="currentView === 'weekly' ? 'active' : ''">
                     <i class="fas fa-book"></i> Bitácora Semanal
                 </a></li>
+                <li><a @click="currentView = 'financial'" :class="currentView === 'financial' ? 'active' : ''">
+                    <i class="fas fa-dollar-sign"></i> Control Financiero
+                </a></li>
             </ul>
         </div>
         
@@ -1016,7 +1019,370 @@
                 </div>
             </div>
         </div>
-        
+
+        <!-- FINANCIAL VIEW -->
+        <div x-show="currentView === 'financial'" class="slide-in">
+            <div class="flex justify-between items-center mb-4">
+                <h1 class="text-3xl font-bold"><i class="fas fa-dollar-sign text-primary"></i> Control Financiero</h1>
+
+                <!-- Selector de Mes -->
+                <input type="month" x-model="selectedMonth" @change="changeFinancialMonth()"
+                       class="input input-bordered input-sm" />
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs tabs-boxed mb-4">
+                <a class="tab" :class="financialView === 'dashboard' ? 'tab-active' : ''"
+                   @click="financialView = 'dashboard'">
+                    <i class="fas fa-chart-pie mr-2"></i> Dashboard
+                </a>
+                <a class="tab" :class="financialView === 'registros' ? 'tab-active' : ''"
+                   @click="financialView = 'registros'; loadFinancialRecords()">
+                    <i class="fas fa-list mr-2"></i> Registros
+                </a>
+                <a class="tab" :class="financialView === 'categorias' ? 'tab-active' : ''"
+                   @click="financialView = 'categorias'">
+                    <i class="fas fa-tags mr-2"></i> Categorías
+                </a>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div x-show="financialView === 'dashboard'" x-cloak>
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <!-- Ingresos -->
+                    <div class="stat bg-base-100 rounded-lg shadow">
+                        <div class="stat-figure text-success">
+                            <i class="fas fa-arrow-up text-3xl"></i>
+                        </div>
+                        <div class="stat-title">Ingresos</div>
+                        <div class="stat-value text-success text-2xl" x-text="formatCurrency(financialSummary?.total_ingresos || 0)"></div>
+                    </div>
+
+                    <!-- Gastos -->
+                    <div class="stat bg-base-100 rounded-lg shadow">
+                        <div class="stat-figure text-error">
+                            <i class="fas fa-arrow-down text-3xl"></i>
+                        </div>
+                        <div class="stat-title">Gastos</div>
+                        <div class="stat-value text-error text-2xl" x-text="formatCurrency(financialSummary?.total_gastos || 0)"></div>
+                    </div>
+
+                    <!-- Balance -->
+                    <div class="stat bg-base-100 rounded-lg shadow">
+                        <div class="stat-figure" :class="(financialSummary?.balance || 0) >= 0 ? 'text-success' : 'text-error'">
+                            <i class="fas fa-balance-scale text-3xl"></i>
+                        </div>
+                        <div class="stat-title">Balance</div>
+                        <div class="stat-value text-2xl"
+                             :class="(financialSummary?.balance || 0) >= 0 ? 'text-success' : 'text-error'"
+                             x-text="formatCurrency(financialSummary?.balance || 0)"></div>
+                    </div>
+
+                    <!-- Tasa de Ahorro -->
+                    <div class="stat bg-base-100 rounded-lg shadow">
+                        <div class="stat-figure text-info">
+                            <i class="fas fa-piggy-bank text-3xl"></i>
+                        </div>
+                        <div class="stat-title">Tasa de Ahorro</div>
+                        <div class="stat-value text-info text-2xl" x-text="(financialSummary?.tasa_ahorro || 0) + '%'"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Gráfico de Gastos -->
+                    <div class="card bg-base-100 shadow-xl">
+                        <div class="card-body">
+                            <h2 class="card-title"><i class="fas fa-chart-pie text-error"></i> Distribución de Gastos</h2>
+                            <div class="h-64">
+                                <canvas id="expensesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Ingresos por Categoría -->
+                    <div class="card bg-base-100 shadow-xl">
+                        <div class="card-body">
+                            <h2 class="card-title"><i class="fas fa-arrow-up text-success"></i> Ingresos por Categoría</h2>
+                            <div class="overflow-x-auto">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Categoría</th>
+                                            <th class="text-right">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="item in (financialSummary?.ingresos_por_categoria || [])" :key="item.categoria">
+                                            <tr>
+                                                <td x-text="item.categoria"></td>
+                                                <td class="text-right text-success font-semibold" x-text="formatCurrency(item.monto)"></td>
+                                            </tr>
+                                        </template>
+                                        <tr x-show="!financialSummary || !financialSummary.ingresos_por_categoria || financialSummary.ingresos_por_categoria.length === 0">
+                                            <td colspan="2" class="text-center opacity-50">No hay ingresos registrados</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deudas -->
+                <div class="card bg-base-100 shadow-xl mt-6" x-show="financialSummary?.total_deudas > 0">
+                    <div class="card-body">
+                        <h2 class="card-title"><i class="fas fa-credit-card text-warning"></i> Deudas Pendientes</h2>
+                        <div class="stat-value text-warning" x-text="formatCurrency(financialSummary?.total_deudas || 0)"></div>
+                        <div class="overflow-x-auto mt-4">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Categoría</th>
+                                        <th class="text-right">Monto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="item in (financialSummary?.deudas_por_categoria || [])" :key="item.categoria">
+                                        <tr>
+                                            <td x-text="item.categoria"></td>
+                                            <td class="text-right text-warning font-semibold" x-text="formatCurrency(item.monto)"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Registros Tab -->
+            <div x-show="financialView === 'registros'" x-cloak>
+                <!-- Formulario de Nuevo Registro -->
+                <div class="card bg-base-100 shadow-xl mb-6">
+                    <div class="card-body">
+                        <h2 class="card-title"><i class="fas fa-plus-circle"></i> Nuevo Registro</h2>
+                        <form @submit.prevent="saveFinancialRecord()" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <!-- Tipo -->
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Tipo</span></label>
+                                <select x-model="newFinancialRecord.tipo" class="select select-bordered" required>
+                                    <option value="ingreso">Ingreso</option>
+                                    <option value="gasto">Gasto</option>
+                                    <option value="deuda">Deuda</option>
+                                </select>
+                            </div>
+
+                            <!-- Categoría -->
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Categoría</span></label>
+                                <select x-model="newFinancialRecord.category_id" class="select select-bordered" required>
+                                    <option value="">Seleccionar...</option>
+                                    <template x-for="cat in financialCategories.filter(c => c.tipo === newFinancialRecord.tipo)" :key="cat.id">
+                                        <option :value="cat.id">
+                                            <span x-text="cat.icono + ' ' + cat.nombre"></span>
+                                        </option>
+                                    </template>
+                                </select>
+                            </div>
+
+                            <!-- Monto -->
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Monto</span></label>
+                                <input type="number" step="0.01" x-model="newFinancialRecord.monto"
+                                       class="input input-bordered" placeholder="0.00" required />
+                            </div>
+
+                            <!-- Fecha -->
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Fecha</span></label>
+                                <input type="date" x-model="newFinancialRecord.fecha_transaccion"
+                                       class="input input-bordered" required />
+                            </div>
+
+                            <!-- Descripción -->
+                            <div class="form-control md:col-span-2">
+                                <label class="label"><span class="label-text">Descripción</span></label>
+                                <input type="text" x-model="newFinancialRecord.descripcion"
+                                       class="input input-bordered" placeholder="Detalles..." />
+                            </div>
+
+                            <!-- Botón Guardar -->
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">&nbsp;</span></label>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Guardar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Lista de Registros -->
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <h2 class="card-title"><i class="fas fa-list"></i> Registros del Mes</h2>
+                        <div class="overflow-x-auto">
+                            <table class="table table-zebra">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Tipo</th>
+                                        <th>Categoría</th>
+                                        <th>Descripción</th>
+                                        <th class="text-right">Monto</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="record in financialRecords" :key="record.id">
+                                        <tr>
+                                            <td x-text="formatDate(record.fecha_transaccion)"></td>
+                                            <td>
+                                                <span class="badge"
+                                                      :class="{
+                                                          'badge-success': record.tipo === 'ingreso',
+                                                          'badge-error': record.tipo === 'gasto',
+                                                          'badge-warning': record.tipo === 'deuda'
+                                                      }"
+                                                      x-text="record.tipo"></span>
+                                            </td>
+                                            <td x-text="record.categoria_nombre"></td>
+                                            <td x-text="record.descripcion"></td>
+                                            <td class="text-right font-semibold"
+                                                :class="{
+                                                    'text-success': record.tipo === 'ingreso',
+                                                    'text-error': record.tipo === 'gasto',
+                                                    'text-warning': record.tipo === 'deuda'
+                                                }"
+                                                x-text="formatCurrency(record.monto)"></td>
+                                            <td>
+                                                <button @click="deleteFinancialRecord(record.id)"
+                                                        class="btn btn-ghost btn-xs text-error">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <tr x-show="financialRecords.length === 0">
+                                        <td colspan="6" class="text-center opacity-50">No hay registros para este mes</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Categorías Tab -->
+            <div x-show="financialView === 'categorias'" x-cloak>
+                <!-- Formulario Nueva Categoría -->
+                <div class="card bg-base-100 shadow-xl mb-6">
+                    <div class="card-body">
+                        <h2 class="card-title"><i class="fas fa-plus-circle"></i> Nueva Categoría</h2>
+                        <form @submit.prevent="saveFinancialCategory()" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <!-- Nombre -->
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Nombre</span></label>
+                                <input type="text" x-model="newFinancialCategory.nombre"
+                                       class="input input-bordered" placeholder="Ej: Restaurantes" required />
+                            </div>
+
+                            <!-- Tipo -->
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Tipo</span></label>
+                                <select x-model="newFinancialCategory.tipo" class="select select-bordered" required>
+                                    <option value="ingreso">Ingreso</option>
+                                    <option value="gasto">Gasto</option>
+                                    <option value="deuda">Deuda</option>
+                                </select>
+                            </div>
+
+                            <!-- Color -->
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Color</span></label>
+                                <input type="color" x-model="newFinancialCategory.color" class="input input-bordered h-12" />
+                            </div>
+
+                            <!-- Icono -->
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Icono (emoji)</span></label>
+                                <input type="text" x-model="newFinancialCategory.icono"
+                                       class="input input-bordered" placeholder="🍕" maxlength="2" />
+                            </div>
+
+                            <!-- Botón Guardar -->
+                            <div class="form-control md:col-span-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Guardar Categoría
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Categorías por Tipo -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Ingresos -->
+                    <div class="card bg-base-100 shadow-xl">
+                        <div class="card-body">
+                            <h2 class="card-title text-success"><i class="fas fa-arrow-up"></i> Ingresos</h2>
+                            <div class="space-y-2">
+                                <template x-for="cat in financialCategories.filter(c => c.tipo === 'ingreso')" :key="cat.id">
+                                    <div class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
+                                        <div class="w-6 h-6 rounded-full flex items-center justify-center"
+                                             :style="`background-color: ${cat.color}`">
+                                            <span x-text="cat.icono"></span>
+                                        </div>
+                                        <span class="flex-1" x-text="cat.nombre"></span>
+                                        <span class="badge badge-sm" x-show="cat.es_predeterminada">Default</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gastos -->
+                    <div class="card bg-base-100 shadow-xl">
+                        <div class="card-body">
+                            <h2 class="card-title text-error"><i class="fas fa-arrow-down"></i> Gastos</h2>
+                            <div class="space-y-2">
+                                <template x-for="cat in financialCategories.filter(c => c.tipo === 'gasto')" :key="cat.id">
+                                    <div class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
+                                        <div class="w-6 h-6 rounded-full flex items-center justify-center"
+                                             :style="`background-color: ${cat.color}`">
+                                            <span x-text="cat.icono"></span>
+                                        </div>
+                                        <span class="flex-1" x-text="cat.nombre"></span>
+                                        <span class="badge badge-sm" x-show="cat.es_predeterminada">Default</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Deudas -->
+                    <div class="card bg-base-100 shadow-xl">
+                        <div class="card-body">
+                            <h2 class="card-title text-warning"><i class="fas fa-credit-card"></i> Deudas</h2>
+                            <div class="space-y-2">
+                                <template x-for="cat in financialCategories.filter(c => c.tipo === 'deuda')" :key="cat.id">
+                                    <div class="flex items-center gap-2 p-2 rounded hover:bg-base-200">
+                                        <div class="w-6 h-6 rounded-full flex items-center justify-center"
+                                             :style="`background-color: ${cat.color}`">
+                                            <span x-text="cat.icono"></span>
+                                        </div>
+                                        <span class="flex-1" x-text="cat.nombre"></span>
+                                        <span class="badge badge-sm" x-show="cat.es_predeterminada">Default</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <!-- Modal: Nueva Tarea -->
@@ -1472,6 +1838,28 @@
                 newLogro: '',
                 newDesafio: '',
 
+                // Financial Control
+                financialView: 'dashboard',
+                financialCategories: [],
+                financialRecords: [],
+                financialSummary: null,
+                selectedMonth: new Date().toISOString().split('T')[0].substring(0, 7),
+                newFinancialRecord: {
+                    mes: new Date().toISOString().split('T')[0],
+                    fecha_transaccion: new Date().toISOString().split('T')[0],
+                    tipo: 'gasto',
+                    monto: 0,
+                    descripcion: '',
+                    category_id: ''
+                },
+                newFinancialCategory: {
+                    nombre: '',
+                    tipo: 'gasto',
+                    color: '#6366f1',
+                    icono: ''
+                },
+                expensesChart: null,
+
                 // Inicialización
                 async init() {
                     const token = localStorage.getItem('access_token');
@@ -1488,6 +1876,8 @@
                     await this.loadMonthlyPlans();
                     await this.loadCompetenciasEvolution();
                     this.initCharts();
+                    await this.loadFinancialCategories();
+                    await this.loadFinancialSummary();
                 },
                 
                 getUserInitials() {
@@ -2335,6 +2725,173 @@
                             }
                         }
                     });
+                },
+
+                // Financial Methods
+                async loadFinancialCategories() {
+                    try {
+                        const response = await this.apiCall('/api/financial/categories');
+                        if (response) {
+                            this.financialCategories = response;
+                        }
+                        if (response && response.length === 0) {
+                            await this.apiCall('/api/financial/initialize', 'POST');
+                            await this.loadFinancialCategories();
+                        }
+                    } catch (error) {
+                        console.error('Error loading categories:', error);
+                    }
+                },
+
+                async loadFinancialRecords(mes = null) {
+                    try {
+                        const queryMes = mes || this.selectedMonth + '-01';
+                        const response = await this.apiCall(`/api/financial/records?mes=${queryMes}`);
+                        if (response) {
+                            this.financialRecords = response;
+                        }
+                    } catch (error) {
+                        console.error('Error loading records:', error);
+                    }
+                },
+
+                async loadFinancialSummary(mes = null) {
+                    try {
+                        const queryMes = mes || this.selectedMonth + '-01';
+                        const response = await this.apiCall(`/api/financial/summary?mes=${queryMes}`);
+                        if (response) {
+                            this.financialSummary = response;
+                            this.updateExpensesChart();
+                        }
+                    } catch (error) {
+                        console.error('Error loading summary:', error);
+                    }
+                },
+
+                async saveFinancialRecord() {
+                    if (!this.newFinancialRecord.monto || this.newFinancialRecord.monto <= 0) {
+                        this.showNotification('Ingresa un monto válido', 'error');
+                        return;
+                    }
+                    if (!this.newFinancialRecord.category_id) {
+                        this.showNotification('Selecciona una categoría', 'error');
+                        return;
+                    }
+
+                    try {
+                        this.newFinancialRecord.mes = this.selectedMonth + '-01';
+                        await this.apiCall('/api/financial/records', 'POST', this.newFinancialRecord);
+                        this.showNotification('Registro guardado', 'success');
+                        await this.loadFinancialRecords();
+                        await this.loadFinancialSummary();
+
+                        // Reset form
+                        this.newFinancialRecord = {
+                            mes: this.selectedMonth + '-01',
+                            fecha_transaccion: new Date().toISOString().split('T')[0],
+                            tipo: 'gasto',
+                            monto: 0,
+                            descripcion: '',
+                            category_id: ''
+                        };
+                    } catch (error) {
+                        this.showNotification('Error: ' + error.message, 'error');
+                    }
+                },
+
+                async deleteFinancialRecord(recordId) {
+                    if (!confirm('¿Eliminar este registro?')) return;
+                    try {
+                        await this.apiCall(`/api/financial/records/${recordId}`, 'DELETE');
+                        this.showNotification('Registro eliminado', 'success');
+                        await this.loadFinancialRecords();
+                        await this.loadFinancialSummary();
+                    } catch (error) {
+                        this.showNotification('Error: ' + error.message, 'error');
+                    }
+                },
+
+                async saveFinancialCategory() {
+                    if (!this.newFinancialCategory.nombre.trim()) {
+                        this.showNotification('Ingresa un nombre', 'error');
+                        return;
+                    }
+                    try {
+                        await this.apiCall('/api/financial/categories', 'POST', this.newFinancialCategory);
+                        this.showNotification('Categoría creada', 'success');
+                        await this.loadFinancialCategories();
+                        this.newFinancialCategory = {
+                            nombre: '',
+                            tipo: 'gasto',
+                            color: '#6366f1',
+                            icono: ''
+                        };
+                    } catch (error) {
+                        this.showNotification('Error: ' + error.message, 'error');
+                    }
+                },
+
+                async changeFinancialMonth() {
+                    await this.loadFinancialRecords();
+                    await this.loadFinancialSummary();
+                },
+
+                updateExpensesChart() {
+                    if (!this.financialSummary) return;
+
+                    const ctx = document.getElementById('expensesChart');
+                    if (!ctx) return;
+
+                    if (this.expensesChart) {
+                        this.expensesChart.destroy();
+                    }
+
+                    const gastos = this.financialSummary.gastos_por_categoria || [];
+                    if (gastos.length === 0) return;
+
+                    const colors = gastos.map(g => {
+                        const cat = this.financialCategories.find(c => c.nombre === g.categoria);
+                        return cat ? cat.color : '#6366f1';
+                    });
+
+                    this.expensesChart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: gastos.map(g => g.categoria),
+                            datasets: [{
+                                data: gastos.map(g => g.monto),
+                                backgroundColor: colors,
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const value = context.parsed || 0;
+                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                            const percentage = ((value / total) * 100).toFixed(1);
+                                            return `${context.label}: $${value.toFixed(2)} (${percentage}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                },
+
+                formatCurrency(amount) {
+                    return new Intl.NumberFormat('es-MX', {
+                        style: 'currency',
+                        currency: 'MXN'
+                    }).format(amount || 0);
                 }
             }
         }
