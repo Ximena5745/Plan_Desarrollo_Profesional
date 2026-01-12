@@ -262,13 +262,20 @@
                             <i class="fas fa-info-circle"></i>
                             <span>No hay tareas creadas. Haz clic en "Nueva Tarea" para comenzar.</span>
                         </div>
-                        <div class="alert alert-success mb-4 text-sm" x-show="tasks.length > 0">
-                            <i class="fas fa-tasks"></i>
-                            <span>
-                                Mostrando <b x-text="tasks.length"></b> tareas totales
-                                (<span x-text="tasks.filter(t => !t.parent_task_id).length"></span> principales +
-                                <span x-text="tasks.filter(t => t.parent_task_id).length"></span> subtareas)
-                            </span>
+                        <div class="flex justify-between items-center mb-4" x-show="tasks.length > 0">
+                            <div class="alert alert-success text-sm flex-1 mr-2">
+                                <i class="fas fa-tasks"></i>
+                                <span>
+                                    Mostrando <b x-text="tasks.length"></b> tareas totales
+                                    (<span x-text="tasks.filter(t => !t.parent_task_id).length"></span> principales +
+                                    <span x-text="tasks.filter(t => t.parent_task_id).length"></span> subtareas)
+                                </span>
+                            </div>
+                            <button class="btn btn-sm" @click="showSubtasks = !showSubtasks"
+                                    :class="showSubtasks ? 'btn-primary' : 'btn-ghost'">
+                                <i :class="showSubtasks ? 'fas fa-eye' : 'fas fa-eye-slash'"></i>
+                                <span x-text="showSubtasks ? 'Ocultar Subtareas' : 'Mostrar Subtareas'"></span>
+                            </button>
                         </div>
 
                         <div class="overflow-x-auto">
@@ -287,7 +294,8 @@
                                 <tbody>
                                     <!-- Mostrar todas las tareas con jerarquía visual -->
                                     <template x-for="task in tasks" :key="task.id">
-                                        <tr :class="{'bg-base-200': task.es_macrotarea && !task.parent_task_id, 'hover': task.parent_task_id}">
+                                        <tr x-show="!task.parent_task_id || showSubtasks"
+                                            :class="{'bg-base-200': task.es_macrotarea && !task.parent_task_id, 'hover': task.parent_task_id}">
                                             <td>
                                                 <div class="flex items-center gap-2" :class="{'pl-8': task.parent_task_id}">
                                                     <!-- Icono de jerarquía para subtareas -->
@@ -1804,6 +1812,234 @@
         </div>
     </div>
 
+    <!-- Modal: Ver Bitácora Semanal -->
+    <div x-show="showViewWeeklyLogModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-black opacity-50" @click="showViewWeeklyLogModal = false"></div>
+
+            <div class="relative bg-base-100 rounded-lg shadow-xl max-w-3xl w-full p-6 z-10">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-bold">
+                        <i class="fas fa-book text-primary"></i> Bitácora Semanal
+                    </h3>
+                    <button class="btn btn-ghost btn-sm" @click="showViewWeeklyLogModal = false">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div x-show="viewingWeeklyLog" class="space-y-4">
+                    <!-- Fechas -->
+                    <div class="alert alert-info">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Semana del <strong x-text="viewingWeeklyLog ? formatDate(viewingWeeklyLog.semana_inicio) : ''"></strong> al <strong x-text="viewingWeeklyLog ? formatDate(viewingWeeklyLog.semana_fin) : ''"></strong></span>
+                    </div>
+
+                    <!-- Logros -->
+                    <div class="card bg-base-200">
+                        <div class="card-body">
+                            <h4 class="card-title text-lg"><i class="fas fa-trophy text-warning"></i> Logros</h4>
+                            <ul class="list-disc list-inside space-y-1">
+                                <template x-for="logro in (viewingWeeklyLog?.logros || [])" :key="logro">
+                                    <li x-text="logro"></li>
+                                </template>
+                            </ul>
+                            <div x-show="!viewingWeeklyLog?.logros || viewingWeeklyLog.logros.length === 0" class="text-center opacity-50">
+                                Sin logros registrados
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Desafíos -->
+                    <div class="card bg-base-200">
+                        <div class="card-body">
+                            <h4 class="card-title text-lg"><i class="fas fa-mountain text-error"></i> Desafíos</h4>
+                            <ul class="list-disc list-inside space-y-1">
+                                <template x-for="desafio in (viewingWeeklyLog?.desafios || [])" :key="desafio">
+                                    <li x-text="desafio"></li>
+                                </template>
+                            </ul>
+                            <div x-show="!viewingWeeklyLog?.desafios || viewingWeeklyLog.desafios.length === 0" class="text-center opacity-50">
+                                Sin desafíos registrados
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aprendizajes -->
+                    <div class="card bg-base-200">
+                        <div class="card-body">
+                            <h4 class="card-title text-lg"><i class="fas fa-lightbulb text-warning"></i> Aprendizajes</h4>
+                            <p x-text="viewingWeeklyLog?.aprendizajes || 'Sin aprendizajes registrados'"></p>
+                        </div>
+                    </div>
+
+                    <!-- Reflexiones -->
+                    <div class="card bg-base-200">
+                        <div class="card-body">
+                            <h4 class="card-title text-lg"><i class="fas fa-comment-dots text-info"></i> Reflexiones</h4>
+                            <p x-text="viewingWeeklyLog?.reflexiones || 'Sin reflexiones registradas'"></p>
+                        </div>
+                    </div>
+
+                    <!-- Niveles -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="card bg-base-200">
+                            <div class="card-body">
+                                <h4 class="card-title text-sm">⚡ Nivel de Energía</h4>
+                                <div class="rating rating-lg">
+                                    <template x-for="i in 5" :key="i">
+                                        <input type="radio" class="mask mask-star-2 bg-orange-400" :checked="i <= (viewingWeeklyLog?.nivel_energia || 0)" disabled />
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card bg-base-200">
+                            <div class="card-body">
+                                <h4 class="card-title text-sm">😊 Satisfacción</h4>
+                                <div class="rating rating-lg">
+                                    <template x-for="i in 5" :key="i">
+                                        <input type="radio" class="mask mask-star-2 bg-green-400" :checked="i <= (viewingWeeklyLog?.nivel_satisfaccion || 0)" disabled />
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="flex gap-2 justify-end">
+                        <button class="btn btn-primary" @click="showViewWeeklyLogModal = false; editWeeklyLog(viewingWeeklyLog)">
+                            <i class="fas fa-edit"></i> Editar
+                        </button>
+                        <button class="btn btn-ghost" @click="showViewWeeklyLogModal = false">
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Editar Bitácora Semanal -->
+    <div x-show="showEditWeeklyLogModal" class="fixed inset-0 z-50 overflow-y-auto" x-cloak>
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="fixed inset-0 bg-black opacity-50" @click="showEditWeeklyLogModal = false"></div>
+
+            <div class="relative bg-base-100 rounded-lg shadow-xl max-w-3xl w-full p-6 z-10 max-h-screen overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-bold">
+                        <i class="fas fa-edit text-primary"></i> Editar Bitácora Semanal
+                    </h3>
+                    <button class="btn btn-ghost btn-sm" @click="showEditWeeklyLogModal = false">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <form x-show="editingWeeklyLog" @submit.prevent="updateWeeklyLog()" class="space-y-4">
+                    <!-- Fechas -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Semana Inicio</span></label>
+                            <input type="date" x-model="editingWeeklyLog.semana_inicio" class="input input-bordered" required />
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Semana Fin</span></label>
+                            <input type="date" x-model="editingWeeklyLog.semana_fin" class="input input-bordered" required />
+                        </div>
+                    </div>
+
+                    <!-- Logros -->
+                    <div class="card bg-base-200">
+                        <div class="card-body">
+                            <h4 class="card-title text-lg"><i class="fas fa-trophy text-warning"></i> Logros</h4>
+                            <div class="flex gap-2 mb-2">
+                                <input type="text" x-model="newLogro" @keyup.enter="addLogroEdit()"
+                                       class="input input-bordered flex-1" placeholder="Agregar logro..." />
+                                <button type="button" class="btn btn-primary" @click="addLogroEdit()">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="space-y-2">
+                                <template x-for="(logro, index) in (editingWeeklyLog?.logros || [])" :key="index">
+                                    <div class="flex items-center gap-2 bg-base-100 p-2 rounded">
+                                        <i class="fas fa-check-circle text-success"></i>
+                                        <span class="flex-1" x-text="logro"></span>
+                                        <button type="button" class="btn btn-ghost btn-xs text-error" @click="removeLogroEdit(index)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Desafíos -->
+                    <div class="card bg-base-200">
+                        <div class="card-body">
+                            <h4 class="card-title text-lg"><i class="fas fa-mountain text-error"></i> Desafíos</h4>
+                            <div class="flex gap-2 mb-2">
+                                <input type="text" x-model="newDesafio" @keyup.enter="addDesafioEdit()"
+                                       class="input input-bordered flex-1" placeholder="Agregar desafío..." />
+                                <button type="button" class="btn btn-primary" @click="addDesafioEdit()">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            <div class="space-y-2">
+                                <template x-for="(desafio, index) in (editingWeeklyLog?.desafios || [])" :key="index">
+                                    <div class="flex items-center gap-2 bg-base-100 p-2 rounded">
+                                        <i class="fas fa-exclamation-triangle text-warning"></i>
+                                        <span class="flex-1" x-text="desafio"></span>
+                                        <button type="button" class="btn btn-ghost btn-xs text-error" @click="removeDesafioEdit(index)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aprendizajes -->
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Aprendizajes 📚</span></label>
+                        <textarea x-model="editingWeeklyLog.aprendizajes" class="textarea textarea-bordered" rows="3"
+                                  placeholder="¿Qué aprendiste esta semana?"></textarea>
+                    </div>
+
+                    <!-- Reflexiones -->
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Reflexiones 💭</span></label>
+                        <textarea x-model="editingWeeklyLog.reflexiones" class="textarea textarea-bordered" rows="3"
+                                  placeholder="Pensamientos sobre mi progreso..."></textarea>
+                    </div>
+
+                    <!-- Niveles -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Nivel de Energía: <span x-text="editingWeeklyLog?.nivel_energia || 3"></span>/5 ⚡</span>
+                            </label>
+                            <input type="range" x-model.number="editingWeeklyLog.nivel_energia" min="1" max="5" class="range range-primary" step="1" />
+                        </div>
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Satisfacción: <span x-text="editingWeeklyLog?.nivel_satisfaccion || 3"></span>/5 😊</span>
+                            </label>
+                            <input type="range" x-model.number="editingWeeklyLog.nivel_satisfaccion" min="1" max="5" class="range range-success" step="1" />
+                        </div>
+                    </div>
+
+                    <!-- Botones -->
+                    <div class="flex gap-2 justify-end">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Guardar Cambios
+                        </button>
+                        <button type="button" class="btn btn-ghost" @click="showEditWeeklyLogModal = false">
+                            Cancelar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications -->
     <div class="toast toast-end" x-show="showToast" x-transition>
         <div class="alert" :class="toastType === 'success' ? 'alert-success' : 'alert-error'">
@@ -1823,6 +2059,7 @@
                 showToast: false,
                 toastMessage: '',
                 toastType: 'success',
+                showSubtasks: true,
                 
                 // Datos
                 stats: {
