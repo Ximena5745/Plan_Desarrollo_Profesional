@@ -276,6 +276,30 @@ class UserConfigUpdate(BaseModel):
     categorias: Optional[List[str]] = None
 
 # ============================================
+# FINANCIAL MODELS
+# ============================================
+
+class FinancialCategory(BaseModel):
+    nombre: str
+    tipo: str  # 'ingreso', 'gasto', 'deuda'
+    color: Optional[str] = '#6366f1'
+    icono: Optional[str] = None
+    descripcion: Optional[str] = None
+
+class FinancialRecord(BaseModel):
+    mes: date
+    fecha_transaccion: date
+    tipo: str  # 'ingreso', 'gasto', 'deuda', 'pago_recurrente'
+    monto: float
+    descripcion: Optional[str] = None
+    category_id: Optional[str] = None
+    categoria_nombre: Optional[str] = None
+    es_recurrente: Optional[bool] = False
+    recurrencia_tipo: Optional[str] = None
+    deuda_saldo_pendiente: Optional[float] = None
+    deuda_pagada: Optional[bool] = False
+
+# ============================================
 # AUTENTICACIÓN
 # ============================================
 
@@ -1128,6 +1152,124 @@ async def get_competencias():
     """Obtener catálogo de competencias"""
     response = supabase_admin.table("competencias").select("*").execute()
     return response.data
+
+# ============================================
+# RUTAS - CONTROL FINANCIERO
+# ============================================
+
+@app.post("/api/financial/categories")
+async def create_financial_category(category: FinancialCategory, user_id: str = Depends(verify_token)):
+    """Crear categoría financiera"""
+    data = category.dict()
+    data["user_id"] = user_id
+    response = supabase_admin.table("financial_categories").insert(data).execute()
+    return response.data[0]
+
+@app.get("/api/financial/categories")
+async def get_financial_categories(user_id: str = Depends(verify_token), tipo: Optional[str] = None):
+    """Obtener categorías financieras"""
+    query = supabase_admin.table("financial_categories").select("*").eq("user_id", user_id)
+    if tipo:
+        query = query.eq("tipo", tipo)
+    response = query.order("nombre").execute()
+    return response.data
+
+@app.post("/api/financial/records")
+async def create_financial_record(record: FinancialRecord, user_id: str = Depends(verify_token)):
+    """Crear registro financiero"""
+    data = record.dict()
+    data["user_id"] = user_id
+
+    if isinstance(data.get("mes"), date):
+        data["mes"] = data["mes"].isoformat()
+    if isinstance(data.get("fecha_transaccion"), date):
+        data["fecha_transaccion"] = data["fecha_transaccion"].isoformat()
+
+    # Obtener nombre de categoría
+    if data.get("category_id"):
+        try:
+            cat = supabase_admin.table("financial_categories") \
+                .select("nombre").eq("id", data["category_id"]).single().execute()
+            data["categoria_nombre"] = cat.data["nombre"]
+        except:
+            pass
+
+    response = supabase_admin.table("financial_records").insert(data).execute()
+    return response.data[0]
+
+@app.get("/api/financial/records")
+async def get_financial_records(
+    user_id: str = Depends(verify_token),
+    mes: Optional[str] = None,
+    tipo: Optional[str] = None,
+    limit: int = 100
+):
+    """Obtener registros financieros"""
+    query = supabase_admin.table("financial_records").select("*").eq("user_id", user_id)
+    if mes:
+        query = query.eq("mes", mes)
+    if tipo:
+        query = query.eq("tipo", tipo)
+    response = query.order("fecha_transaccion", desc=True).limit(limit).execute()
+    return response.data
+
+@app.delete("/api/financial/records/{record_id}")
+async def delete_financial_record(record_id: str, user_id: str = Depends(verify_token)):
+    """Eliminar registro financiero"""
+    supabase_admin.table("financial_records").delete().eq("id", record_id).eq("user_id", user_id).execute()
+    return {"message": "Registro eliminado"}
+
+@app.get("/api/financial/summary")
+async def get_financial_summary(user_id: str = Depends(verify_token), mes: Optional[str] = None):
+    """Obtener resumen financiero del mes"""
+    if not mes:
+        mes = date.today().replace(day=1).isoformat()
+
+    try:
+        summary = supabase_admin.table("financial_monthly_summary") \
+            .select("*").eq("user_id", user_id).eq("mes", mes).single().execute()
+        summary_data = summary.data
+    except:
+        summary_data = {
+            "user_id": user_id,
+            "mes": mes,
+            "total_ingresos": 0,
+            "total_gastos": 0,
+            "total_deudas": 0,
+            "balance": 0,
+            "tasa_ahorro": 0
+        }
+
+    # Obtener desglose por categoría
+    records = supabase_admin.table("financial_records") \
+        .select("*").eq("user_id", user_id).eq("mes", mes).execute()
+
+    gastos_por_categoria = {}
+    ingresos_por_categoria = {}
+    deudas_por_categoria = {}
+
+    for record in records.data:
+        cat_name = record.get("categoria_nombre") or "Sin categoría"
+        monto = float(record.get("monto", 0))
+
+        if record["tipo"] == "gasto":
+            gastos_por_categoria[cat_name] = gastos_por_categoria.get(cat_name, 0) + monto
+        elif record["tipo"] == "ingreso":
+            ingresos_por_categoria[cat_name] = ingresos_por_categoria.get(cat_name, 0) + monto
+        elif record["tipo"] == "deuda":
+            deudas_por_categoria[cat_name] = deudas_por_categoria.get(cat_name, 0) + monto
+
+    summary_data["gastos_por_categoria"] = [{"categoria": k, "monto": v} for k, v in gastos_por_categoria.items()]
+    summary_data["ingresos_por_categoria"] = [{"categoria": k, "monto": v} for k, v in ingresos_por_categoria.items()]
+    summary_data["deudas_por_categoria"] = [{"categoria": k, "monto": v} for k, v in deudas_por_categoria.items()]
+
+    return summary_data
+
+@app.post("/api/financial/initialize")
+async def initialize_financial_categories(user_id: str = Depends(verify_token)):
+    """Inicializar categorías predeterminadas"""
+    supabase_admin.rpc("create_default_financial_categories", {"p_user_id": user_id}).execute()
+    return {"message": "Categorías inicializadas"}
 
 # ============================================
 # RUTAS - PÁGINAS HTML
