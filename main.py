@@ -148,6 +148,7 @@ class MonthlyPlan(BaseModel):
     competencias_trabajar: Optional[str] = None  # Texto libre
     competencias: Optional[List[dict]] = []  # Lista de competencias con progreso
     que_quiero_lograr: Optional[str] = None
+    actividades_lograr: Optional[List[dict]] = []  # Lista de actividades para lograr objetivos
     mis_fortalezas: Optional[str] = None
     mis_debilidades: Optional[str] = None
     objetivos: Optional[str] = None
@@ -608,6 +609,24 @@ async def get_weekly_log(log_id: str, user_id: str = Depends(verify_token)):
         .single() \
         .execute()
     return response.data
+
+@app.put("/api/weekly/logs/{log_id}")
+async def update_weekly_log(log_id: str, log: WeeklyLog, user_id: str = Depends(verify_token)):
+    """Actualizar bitácora semanal"""
+    data = log.dict(exclude_unset=True)
+
+    # Convertir fechas a string para JSON
+    if isinstance(data.get("semana_inicio"), date):
+        data["semana_inicio"] = data["semana_inicio"].isoformat()
+    if isinstance(data.get("semana_fin"), date):
+        data["semana_fin"] = data["semana_fin"].isoformat()
+
+    response = supabase_admin.table("weekly_logs") \
+        .update(data) \
+        .eq("id", log_id) \
+        .eq("user_id", user_id) \
+        .execute()
+    return response.data[0]
 
 # ============================================
 # RUTAS - TAREAS DIARIAS
