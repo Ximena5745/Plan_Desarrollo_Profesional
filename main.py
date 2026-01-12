@@ -771,6 +771,58 @@ async def recalcular_progreso(task_id: str, user_id: str = Depends(verify_token)
 
     return {"message": "Progreso recalculado", "progreso": promedio}
 
+@app.put("/api/tasks/{task_id}/recalcular-fechas")
+async def recalcular_fechas(task_id: str, user_id: str = Depends(verify_token)):
+    """Recalcular fechas de una macrotarea basándose en sus subtareas"""
+    # Verificar que la tarea existe y pertenece al usuario
+    task = supabase_admin.table("daily_tasks") \
+        .select("*") \
+        .eq("id", task_id) \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+
+    if not task.data:
+        raise HTTPException(404, "Tarea no encontrada")
+
+    if not task.data.get("es_macrotarea"):
+        raise HTTPException(400, "La tarea no es una macrotarea")
+
+    # Obtener subtareas
+    subtareas = supabase_admin.table("daily_tasks") \
+        .select("fecha_inicio, fecha_fin") \
+        .eq("parent_task_id", task_id) \
+        .execute()
+
+    if not subtareas.data or len(subtareas.data) == 0:
+        return {"message": "No hay subtareas", "fecha_inicio": None, "fecha_fin": None}
+
+    # Filtrar subtareas que tengan fechas válidas
+    fechas_inicio = [st["fecha_inicio"] for st in subtareas.data if st.get("fecha_inicio")]
+    fechas_fin = [st["fecha_fin"] for st in subtareas.data if st.get("fecha_fin")]
+
+    if not fechas_inicio or not fechas_fin:
+        return {"message": "Las subtareas no tienen fechas definidas", "fecha_inicio": None, "fecha_fin": None}
+
+    # Calcular MIN(fecha_inicio) y MAX(fecha_fin)
+    fecha_inicio_min = min(fechas_inicio)
+    fecha_fin_max = max(fechas_fin)
+
+    # Actualizar macrotarea
+    updated = supabase_admin.table("daily_tasks") \
+        .update({
+            "fecha_inicio": fecha_inicio_min,
+            "fecha_fin": fecha_fin_max
+        }) \
+        .eq("id", task_id) \
+        .execute()
+
+    return {
+        "message": "Fechas recalculadas",
+        "fecha_inicio": fecha_inicio_min,
+        "fecha_fin": fecha_fin_max
+    }
+
 @app.delete("/api/tasks/{task_id}")
 async def delete_task(task_id: str, user_id: str = Depends(verify_token)):
     """Eliminar tarea"""

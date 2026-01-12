@@ -2551,8 +2551,17 @@
                         if (response) {
                             this.showNotification('Tarea creada exitosamente', 'success');
                             this.showNewTaskModal = false;
+
+                            // Si es una subtarea, recalcular fechas de la macrotarea padre
+                            const parentTaskId = this.newTask.parent_task_id;
+
                             await this.loadTasks();
                             await this.loadDashboardData();
+
+                            // Recalcular fechas de macrotarea si es subtarea
+                            if (parentTaskId) {
+                                await this.recalcularFechasMacrotarea(parentTaskId);
+                            }
 
                             // Reset form
                             this.newTask = {
@@ -2580,10 +2589,19 @@
                     if (!confirm('¿Estás seguro de eliminar esta tarea?')) return;
 
                     try {
+                        // Obtener parent_task_id antes de eliminar
+                        const task = this.tasks.find(t => t.id === taskId);
+                        const parentTaskId = task ? task.parent_task_id : null;
+
                         await this.apiCall(`/api/tasks/${taskId}`, 'DELETE');
                         this.tasks = this.tasks.filter(t => t.id !== taskId);
                         this.showNotification('Tarea eliminada', 'success');
                         await this.loadDashboardData();
+
+                        // Si era una subtarea, recalcular fechas de la macrotarea padre
+                        if (parentTaskId) {
+                            await this.recalcularFechasMacrotarea(parentTaskId);
+                        }
                     } catch (error) {
                         this.showNotification('Error al eliminar tarea', 'error');
                     }
@@ -2598,6 +2616,7 @@
                 async updateTask() {
                     try {
                         const taskId = this.editingTask.id;
+                        const parentTaskId = this.editingTask.parent_task_id;
                         const response = await this.apiCall(`/api/tasks/${taskId}`, 'PUT', this.editingTask);
 
                         if (response) {
@@ -2605,10 +2624,32 @@
                             this.showEditTaskModal = false;
                             await this.loadTasks();
                             await this.loadDashboardData();
+
+                            // Si es una subtarea, recalcular fechas de la macrotarea padre
+                            if (parentTaskId) {
+                                await this.recalcularFechasMacrotarea(parentTaskId);
+                            }
+
                             this.editingTask = null;
                         }
                     } catch (error) {
                         this.showNotification('Error al actualizar tarea: ' + error.message, 'error');
+                    }
+                },
+
+                async recalcularFechasMacrotarea(macrotareaId) {
+                    try {
+                        const response = await this.apiCall(`/api/tasks/${macrotareaId}/recalcular-fechas`, 'PUT');
+                        if (response && response.message !== 'No hay subtareas' && response.message !== 'Las subtareas no tienen fechas definidas') {
+                            // Actualizar la tarea en el array local
+                            const taskIndex = this.tasks.findIndex(t => t.id === macrotareaId);
+                            if (taskIndex !== -1) {
+                                this.tasks[taskIndex].fecha_inicio = response.fecha_inicio;
+                                this.tasks[taskIndex].fecha_fin = response.fecha_fin;
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error al recalcular fechas:', error);
                     }
                 },
 
