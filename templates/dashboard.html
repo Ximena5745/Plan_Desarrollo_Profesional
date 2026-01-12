@@ -192,14 +192,18 @@
                 <div class="card bg-base-100 shadow-lg">
                     <div class="card-body">
                         <h2 class="card-title"><i class="fas fa-chart-line text-primary"></i> Progreso Semanal</h2>
-                        <canvas id="weeklyChart"></canvas>
+                        <div class="relative" style="height: 300px;">
+                            <canvas id="weeklyChart"></canvas>
+                        </div>
                     </div>
                 </div>
-                
+
                 <div class="card bg-base-100 shadow-lg">
                     <div class="card-body">
                         <h2 class="card-title"><i class="fas fa-chart-pie text-secondary"></i> Tareas por Categoría</h2>
-                        <canvas id="categoryChart"></canvas>
+                        <div class="relative" style="height: 300px;">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -292,19 +296,26 @@
 
                                 <div class="form-control flex-1 min-w-[150px]">
                                     <label class="label py-1">
-                                        <span class="label-text text-xs font-semibold">Categoría</span>
+                                        <span class="label-text text-xs font-semibold">Clasificación</span>
                                     </label>
-                                    <select x-model="filterCategoria" class="select select-bordered select-sm">
+                                    <select x-model="filterClasificacion" class="select select-bordered select-sm">
                                         <option value="">Todas</option>
-                                        <template x-for="categoria in userConfig.categorias" :key="categoria">
-                                            <option :value="categoria" x-text="categoria"></option>
+                                        <template x-for="clasificacion in uniqueClasificaciones" :key="clasificacion">
+                                            <option :value="clasificacion" x-text="clasificacion"></option>
                                         </template>
                                     </select>
                                 </div>
 
+                                <div class="form-control flex-1 min-w-[150px]">
+                                    <label class="label py-1">
+                                        <span class="label-text text-xs font-semibold">Fecha</span>
+                                    </label>
+                                    <input type="date" x-model="filterFecha" class="input input-bordered input-sm" />
+                                </div>
+
                                 <button class="btn btn-sm btn-ghost gap-2"
                                         @click="clearFilters()"
-                                        x-show="filterEstado || filterPrioridad || filterCategoria">
+                                        x-show="filterEstado || filterPrioridad || filterClasificacion || filterFecha">
                                     <i class="fas fa-times"></i>
                                     Limpiar Filtros
                                 </button>
@@ -428,17 +439,21 @@
                         </div>
 
                         <div class="form-control">
-                            <select x-model="filterCategoria" class="select select-bordered select-sm">
-                                <option value="">Todas las Categorías</option>
-                                <template x-for="categoria in userConfig.categorias" :key="categoria">
-                                    <option :value="categoria" x-text="categoria"></option>
+                            <select x-model="filterClasificacion" class="select select-bordered select-sm">
+                                <option value="">Todas las Clasificaciones</option>
+                                <template x-for="clasificacion in uniqueClasificaciones" :key="clasificacion">
+                                    <option :value="clasificacion" x-text="clasificacion"></option>
                                 </template>
                             </select>
                         </div>
 
+                        <div class="form-control">
+                            <input type="date" x-model="filterFecha" class="input input-bordered input-sm" placeholder="Filtrar por fecha" />
+                        </div>
+
                         <button class="btn btn-sm btn-ghost gap-2"
                                 @click="clearFilters()"
-                                x-show="filterPrioridad || filterCategoria">
+                                x-show="filterPrioridad || filterClasificacion || filterFecha">
                             <i class="fas fa-times"></i>
                             Limpiar
                         </button>
@@ -2151,7 +2166,8 @@
                 // Filtros de tareas
                 filterEstado: '',
                 filterPrioridad: '',
-                filterCategoria: '',
+                filterClasificacion: '',
+                filterFecha: '',
 
                 // Datos
                 stats: {
@@ -2338,7 +2354,12 @@
                     try {
                         const response = await this.apiCall('/api/weekly/logs');
                         if (response) {
-                            this.weeklyLogs = response;
+                            // Normalizar los datos para asegurar que logros y desafíos sean arrays
+                            this.weeklyLogs = response.map(log => ({
+                                ...log,
+                                logros: Array.isArray(log.logros) ? log.logros : (log.logros ? [log.logros] : []),
+                                desafios: Array.isArray(log.desafios) ? log.desafios : (log.desafios ? [log.desafios] : [])
+                            }));
                         }
                     } catch (error) {
                         console.error('Error loading weekly logs:', error);
@@ -3096,7 +3117,11 @@
                 },
 
                 editWeeklyLog(log) {
-                    this.editingWeeklyLog = { ...log };
+                    this.editingWeeklyLog = {
+                        ...log,
+                        logros: Array.isArray(log.logros) ? log.logros : (log.logros ? [log.logros] : []),
+                        desafios: Array.isArray(log.desafios) ? log.desafios : (log.desafios ? [log.desafios] : [])
+                    };
                     this.showEditWeeklyLogModal = true;
                 },
 
@@ -3644,18 +3669,39 @@
                         filtered = filtered.filter(t => t.prioridad === this.filterPrioridad);
                     }
 
-                    // Filtrar por categoría
-                    if (this.filterCategoria) {
-                        filtered = filtered.filter(t => t.categoria === this.filterCategoria);
+                    // Filtrar por clasificación
+                    if (this.filterClasificacion) {
+                        filtered = filtered.filter(t => t.clasificacion === this.filterClasificacion);
+                    }
+
+                    // Filtrar por fecha (fecha_inicio o fecha_fin coincide con la fecha seleccionada)
+                    if (this.filterFecha) {
+                        filtered = filtered.filter(t => {
+                            const fechaInicio = t.fecha_inicio ? t.fecha_inicio.split('T')[0] : null;
+                            const fechaFin = t.fecha_fin ? t.fecha_fin.split('T')[0] : null;
+                            return fechaInicio === this.filterFecha || fechaFin === this.filterFecha ||
+                                   (fechaInicio <= this.filterFecha && fechaFin >= this.filterFecha);
+                        });
                     }
 
                     return filtered;
                 },
 
+                get uniqueClasificaciones() {
+                    const clasificaciones = new Set();
+                    this.tasks.forEach(task => {
+                        if (task.clasificacion) {
+                            clasificaciones.add(task.clasificacion);
+                        }
+                    });
+                    return Array.from(clasificaciones).sort();
+                },
+
                 clearFilters() {
                     this.filterEstado = '';
                     this.filterPrioridad = '';
-                    this.filterCategoria = '';
+                    this.filterClasificacion = '';
+                    this.filterFecha = '';
                 }
             }
         }
