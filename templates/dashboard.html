@@ -2470,9 +2470,22 @@
 
                 formatMonth(dateString) {
                     if (!dateString) return '';
-                    const date = new Date(dateString + '-01'); // Agregar día para parsear correctamente
-                    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-                    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+                    try {
+                        // Extraer año y mes del string
+                        const parts = dateString.split('-');
+                        const year = parseInt(parts[0]);
+                        const monthIndex = parseInt(parts[1]) - 1;
+
+                        if (isNaN(year) || isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+                            return dateString; // Retornar original si no se puede parsear
+                        }
+
+                        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                        return `${months[monthIndex]} ${year}`;
+                    } catch (error) {
+                        console.error('Error formatting month:', error, dateString);
+                        return dateString;
+                    }
                 },
 
                 // Convertir fecha sin timezone offset
@@ -2960,6 +2973,9 @@
 
                     this.newActividad = '';
 
+                    // Actualizar progreso basado en actividades
+                    this.updateProgressoFromActividades(competenciaIndex);
+
                     if (this.currentPlanId) {
                         this.saveCompetencias();
                     }
@@ -2969,13 +2985,31 @@
                     const actividad = this.monthlyPlan.competencias[competenciaIndex].actividades[actividadIndex];
                     actividad.completada = !actividad.completada;
 
+                    // Actualizar progreso automáticamente basado en actividades completadas
+                    this.updateProgressoFromActividades(competenciaIndex);
+
                     if (this.currentPlanId) {
                         this.saveCompetencias();
                     }
                 },
 
+                updateProgressoFromActividades(competenciaIndex) {
+                    const competencia = this.monthlyPlan.competencias[competenciaIndex];
+                    if (!competencia.actividades || competencia.actividades.length === 0) return;
+
+                    const completadas = competencia.actividades.filter(a => a.completada).length;
+                    const total = competencia.actividades.length;
+                    const porcentaje = Math.round((completadas / total) * 100);
+
+                    // Actualizar progreso actual basado en las actividades completadas
+                    competencia.progreso_actual = porcentaje;
+                },
+
                 removeActividad(competenciaIndex, actividadIndex) {
                     this.monthlyPlan.competencias[competenciaIndex].actividades.splice(actividadIndex, 1);
+
+                    // Actualizar progreso basado en actividades
+                    this.updateProgressoFromActividades(competenciaIndex);
 
                     if (this.currentPlanId) {
                         this.saveCompetencias();
@@ -3112,7 +3146,11 @@
                 },
 
                 viewWeeklyLog(log) {
-                    this.viewingWeeklyLog = { ...log };
+                    this.viewingWeeklyLog = {
+                        ...log,
+                        logros: Array.isArray(log.logros) ? log.logros : (log.logros ? [log.logros] : []),
+                        desafios: Array.isArray(log.desafios) ? log.desafios : (log.desafios ? [log.desafios] : [])
+                    };
                     this.showViewWeeklyLogModal = true;
                 },
 
@@ -3192,10 +3230,12 @@
                 },
                 
                 async initCharts() {
-                    // Esperar a que los datos estén cargados
+                    // Esperar a que el DOM esté completamente renderizado
                     await this.$nextTick();
-                    this.renderWeeklyProgressChart();
-                    this.renderCategoryChart();
+                    setTimeout(() => {
+                        this.renderWeeklyProgressChart();
+                        this.renderCategoryChart();
+                    }, 100);
                 },
 
                 renderWeeklyProgressChart() {
