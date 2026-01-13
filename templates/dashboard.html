@@ -3253,19 +3253,18 @@
                 },
 
                 renderWeeklyProgressChart() {
-                    const canvas = document.getElementById('weeklyChart');
-                    if (!canvas) {
-                        console.warn('Canvas weeklyChart not found');
-                        return;
-                    }
+                    try {
+                        const canvas = document.getElementById('weeklyChart');
+                        if (!canvas) {
+                            console.error('Canvas weeklyChart not found');
+                            return;
+                        }
 
-                    // Verificar que el canvas esté visible
-                    if (canvas.offsetParent === null) {
-                        console.warn('Canvas weeklyChart is not visible');
-                        return;
-                    }
-
-                    const ctx = canvas.getContext('2d');
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            console.error('Could not get 2d context from weeklyChart');
+                            return;
+                        }
 
                     // Destroy existing chart
                     if (this.weeklyChart) {
@@ -3327,22 +3326,25 @@
                             }
                         }
                     });
+                    console.log('Weekly progress chart rendered successfully');
+                    } catch (error) {
+                        console.error('Error rendering weekly progress chart:', error);
+                    }
                 },
 
                 renderCategoryChart() {
-                    const canvas = document.getElementById('categoryChart');
-                    if (!canvas) {
-                        console.warn('Canvas categoryChart not found');
-                        return;
-                    }
+                    try {
+                        const canvas = document.getElementById('categoryChart');
+                        if (!canvas) {
+                            console.error('Canvas categoryChart not found');
+                            return;
+                        }
 
-                    // Verificar que el canvas esté visible
-                    if (canvas.offsetParent === null) {
-                        console.warn('Canvas categoryChart is not visible');
-                        return;
-                    }
-
-                    const ctx = canvas.getContext('2d');
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            console.error('Could not get 2d context from categoryChart');
+                            return;
+                        }
 
                     // Destroy existing chart
                     if (this.categoryChart) {
@@ -3399,15 +3401,30 @@
                             }
                         }
                     });
+                    console.log('Category chart rendered successfully');
+                    } catch (error) {
+                        console.error('Error rendering category chart:', error);
+                    }
                 },
 
                 renderCompetenciasChart() {
-                    if (!this.planComparison || !this.planComparison.competencias_stats.competencias.length) return;
+                    try {
+                        if (!this.planComparison || !this.planComparison.competencias_stats.competencias.length) {
+                            console.warn('No competencias data available');
+                            return;
+                        }
 
-                    const canvas = document.getElementById('competenciasChart');
-                    if (!canvas) return;
+                        const canvas = document.getElementById('competenciasChart');
+                        if (!canvas) {
+                            console.error('Canvas competenciasChart not found');
+                            return;
+                        }
 
-                    const ctx = canvas.getContext('2d');
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            console.error('Could not get 2d context from competenciasChart');
+                            return;
+                        }
 
                     // Destroy existing chart
                     if (this.competenciasChart) {
@@ -3470,15 +3487,30 @@
                             }
                         }
                     });
+                    console.log('Competencias chart rendered successfully');
+                    } catch (error) {
+                        console.error('Error rendering competencias chart:', error);
+                    }
                 },
 
                 renderEvolutionChart() {
-                    if (!this.competenciasEvolution || Object.keys(this.competenciasEvolution).length === 0) return;
+                    try {
+                        if (!this.competenciasEvolution || Object.keys(this.competenciasEvolution).length === 0) {
+                            console.warn('No evolution data available');
+                            return;
+                        }
 
-                    const canvas = document.getElementById('evolutionChart');
-                    if (!canvas) return;
+                        const canvas = document.getElementById('evolutionChart');
+                        if (!canvas) {
+                            console.error('Canvas evolutionChart not found');
+                            return;
+                        }
 
-                    const ctx = canvas.getContext('2d');
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            console.error('Could not get 2d context from evolutionChart');
+                            return;
+                        }
 
                     // Destroy existing chart
                     if (this.evolutionChart) {
@@ -3558,6 +3590,10 @@
                             }
                         }
                     });
+                    console.log('Evolution chart rendered successfully');
+                    } catch (error) {
+                        console.error('Error rendering evolution chart:', error);
+                    }
                 },
 
                 // Financial Methods
@@ -3594,7 +3630,11 @@
                         const response = await this.apiCall(`/api/financial/summary?mes=${queryMes}`);
                         if (response) {
                             this.financialSummary = response;
-                            this.updateExpensesChart();
+                            // Esperar a que el DOM esté listo antes de renderizar la gráfica
+                            await this.$nextTick();
+                            setTimeout(() => {
+                                this.updateExpensesChart();
+                            }, 200);
                         }
                     } catch (error) {
                         console.error('Error loading summary:', error);
@@ -3670,24 +3710,40 @@
                 },
 
                 updateExpensesChart() {
-                    if (!this.financialSummary) return;
+                    try {
+                        if (!this.financialSummary) {
+                            console.warn('No financial summary data available');
+                            return;
+                        }
 
-                    const ctx = document.getElementById('expensesChart');
-                    if (!ctx) return;
+                        const canvas = document.getElementById('expensesChart');
+                        if (!canvas) {
+                            console.error('Canvas expensesChart not found');
+                            return;
+                        }
 
-                    if (this.expensesChart) {
-                        this.expensesChart.destroy();
-                    }
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) {
+                            console.error('Could not get 2d context from expensesChart');
+                            return;
+                        }
 
-                    const gastos = this.financialSummary.gastos_por_categoria || [];
-                    if (gastos.length === 0) return;
+                        if (this.expensesChart) {
+                            this.expensesChart.destroy();
+                        }
 
-                    const colors = gastos.map(g => {
-                        const cat = this.financialCategories.find(c => c.nombre === g.categoria);
-                        return cat ? cat.color : '#6366f1';
-                    });
+                        const gastos = this.financialSummary.gastos_por_categoria || [];
+                        if (gastos.length === 0) {
+                            console.warn('No expenses data available');
+                            return;
+                        }
 
-                    this.expensesChart = new Chart(ctx, {
+                        const colors = gastos.map(g => {
+                            const cat = this.financialCategories.find(c => c.nombre === g.categoria);
+                            return cat ? cat.color : '#6366f1';
+                        });
+
+                        this.expensesChart = new Chart(ctx, {
                         type: 'doughnut',
                         data: {
                             labels: gastos.map(g => g.categoria),
@@ -3718,6 +3774,10 @@
                             }
                         }
                     });
+                    console.log('Expenses chart rendered successfully');
+                    } catch (error) {
+                        console.error('Error rendering expenses chart:', error);
+                    }
                 },
 
                 formatCurrency(amount) {
