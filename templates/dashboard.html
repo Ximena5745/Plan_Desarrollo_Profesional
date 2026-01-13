@@ -1293,7 +1293,7 @@
                     <div class="card bg-base-100 shadow-xl">
                         <div class="card-body">
                             <h2 class="card-title"><i class="fas fa-chart-pie text-error"></i> Distribución de Gastos</h2>
-                            <div class="h-64">
+                            <div class="relative" style="height: 300px;">
                                 <canvas id="expensesChart"></canvas>
                             </div>
                         </div>
@@ -2193,9 +2193,30 @@
                 showAddCategoria: false,
 
                 // Tarea en edición
-                editingTask: null,
+                editingTask: {
+                    titulo: '',
+                    descripcion: '',
+                    clasificacion: '',
+                    categoria: '',
+                    fecha_inicio: '',
+                    fecha_fin: '',
+                    estado: 'pendiente',
+                    prioridad: 'media',
+                    progreso: 0,
+                    es_macrotarea: false,
+                    observaciones: ''
+                },
                 viewingWeeklyLog: null,
-                editingWeeklyLog: null,
+                editingWeeklyLog: {
+                    semana_inicio: '',
+                    semana_fin: '',
+                    logros: [],
+                    desafios: [],
+                    aprendizajes: '',
+                    reflexiones: '',
+                    nivel_energia: 3,
+                    nivel_satisfaccion: 3
+                },
 
                 // Configuración de usuario
                 userConfig: {
