@@ -81,7 +81,7 @@
         <!-- Navigation Menu -->
         <div class="flex-none hidden lg:flex">
             <ul class="menu menu-horizontal px-1">
-                <li><a @click="currentView = 'dashboard'" :class="currentView === 'dashboard' ? 'active' : ''">
+                <li><a @click="currentView = 'dashboard'; refreshCharts()" :class="currentView === 'dashboard' ? 'active' : ''">
                     <i class="fas fa-home"></i> Dashboard
                 </a></li>
                 <li><a @click="currentView = 'tasks'" :class="currentView === 'tasks' ? 'active' : ''">
@@ -134,7 +134,7 @@
             <div class="drawer-side z-50">
                 <label for="mobile-drawer" class="drawer-overlay"></label>
                 <ul class="menu p-4 w-80 min-h-full bg-base-100">
-                    <li><a @click="currentView = 'dashboard'"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li><a @click="currentView = 'dashboard'; refreshCharts()"><i class="fas fa-home"></i> Dashboard</a></li>
                     <li><a @click="currentView = 'tasks'"><i class="fas fa-tasks"></i> Tareas</a></li>
                     <li><a @click="currentView = 'monthly'"><i class="fas fa-calendar-alt"></i> Plan Mensual</a></li>
                     <li><a @click="currentView = 'weekly'"><i class="fas fa-book"></i> Bitácora Semanal</a></li>
@@ -3230,17 +3230,40 @@
                 },
                 
                 async initCharts() {
-                    // Esperar a que el DOM esté completamente renderizado
+                    // Esperar a que el DOM esté completamente renderizado y la vista sea visible
                     await this.$nextTick();
-                    setTimeout(() => {
-                        this.renderWeeklyProgressChart();
-                        this.renderCategoryChart();
-                    }, 100);
+
+                    // Solo renderizar si estamos en la vista dashboard
+                    if (this.currentView === 'dashboard') {
+                        setTimeout(() => {
+                            this.renderWeeklyProgressChart();
+                            this.renderCategoryChart();
+                        }, 300);
+                    }
+                },
+
+                // Método para re-renderizar gráficas cuando cambia la vista
+                refreshCharts() {
+                    if (this.currentView === 'dashboard') {
+                        setTimeout(() => {
+                            this.renderWeeklyProgressChart();
+                            this.renderCategoryChart();
+                        }, 100);
+                    }
                 },
 
                 renderWeeklyProgressChart() {
                     const canvas = document.getElementById('weeklyChart');
-                    if (!canvas) return;
+                    if (!canvas) {
+                        console.warn('Canvas weeklyChart not found');
+                        return;
+                    }
+
+                    // Verificar que el canvas esté visible
+                    if (canvas.offsetParent === null) {
+                        console.warn('Canvas weeklyChart is not visible');
+                        return;
+                    }
 
                     const ctx = canvas.getContext('2d');
 
@@ -3308,7 +3331,16 @@
 
                 renderCategoryChart() {
                     const canvas = document.getElementById('categoryChart');
-                    if (!canvas) return;
+                    if (!canvas) {
+                        console.warn('Canvas categoryChart not found');
+                        return;
+                    }
+
+                    // Verificar que el canvas esté visible
+                    if (canvas.offsetParent === null) {
+                        console.warn('Canvas categoryChart is not visible');
+                        return;
+                    }
 
                     const ctx = canvas.getContext('2d');
 

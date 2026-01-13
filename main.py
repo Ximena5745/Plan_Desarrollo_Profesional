@@ -451,7 +451,12 @@ async def update_monthly_plan(plan_id: str, plan: MonthlyPlan, user_id: str = De
     """Actualizar plan mensual"""
     data = plan.dict(exclude_unset=True)
 
-    # Convertir fecha a string para JSON
+    # El mes no se debe actualizar para evitar violación de constraint único
+    # El mes es inmutable una vez creado el plan
+    if "mes" in data:
+        del data["mes"]
+
+    # Convertir fecha a string para JSON si existe
     if isinstance(data.get("mes"), date):
         data["mes"] = data["mes"].isoformat()
 
