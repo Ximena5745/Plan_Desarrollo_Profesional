@@ -3146,11 +3146,52 @@
                 },
 
                 viewWeeklyLog(log) {
+                    console.log('=== DEBUG viewWeeklyLog ===');
+                    console.log('Raw log object:', log);
+                    console.log('log.logros type:', typeof log.logros, 'value:', log.logros);
+                    console.log('log.desafios type:', typeof log.desafios, 'value:', log.desafios);
+
+                    // Normalizar logros
+                    let normalizedLogros = [];
+                    if (Array.isArray(log.logros)) {
+                        normalizedLogros = log.logros;
+                    } else if (log.logros && typeof log.logros === 'string') {
+                        normalizedLogros = [log.logros];
+                    } else if (log.logros && typeof log.logros === 'object') {
+                        // Podría ser un objeto JSON que necesita ser parseado
+                        try {
+                            const parsed = typeof log.logros === 'string' ? JSON.parse(log.logros) : log.logros;
+                            normalizedLogros = Array.isArray(parsed) ? parsed : [parsed];
+                        } catch (e) {
+                            normalizedLogros = [];
+                        }
+                    }
+
+                    // Normalizar desafíos
+                    let normalizedDesafios = [];
+                    if (Array.isArray(log.desafios)) {
+                        normalizedDesafios = log.desafios;
+                    } else if (log.desafios && typeof log.desafios === 'string') {
+                        normalizedDesafios = [log.desafios];
+                    } else if (log.desafios && typeof log.desafios === 'object') {
+                        try {
+                            const parsed = typeof log.desafios === 'string' ? JSON.parse(log.desafios) : log.desafios;
+                            normalizedDesafios = Array.isArray(parsed) ? parsed : [parsed];
+                        } catch (e) {
+                            normalizedDesafios = [];
+                        }
+                    }
+
                     this.viewingWeeklyLog = {
                         ...log,
-                        logros: Array.isArray(log.logros) ? log.logros : (log.logros ? [log.logros] : []),
-                        desafios: Array.isArray(log.desafios) ? log.desafios : (log.desafios ? [log.desafios] : [])
+                        logros: normalizedLogros,
+                        desafios: normalizedDesafios
                     };
+
+                    console.log('Normalized viewingWeeklyLog:', this.viewingWeeklyLog);
+                    console.log('logros array:', this.viewingWeeklyLog.logros);
+                    console.log('desafios array:', this.viewingWeeklyLog.desafios);
+
                     this.showViewWeeklyLogModal = true;
                 },
 
@@ -3230,41 +3271,72 @@
                 },
                 
                 async initCharts() {
+                    console.log('=== initCharts called ===');
+                    console.log('currentView:', this.currentView);
+                    console.log('Chart.js available:', typeof Chart !== 'undefined');
+
                     // Esperar a que el DOM esté completamente renderizado y la vista sea visible
                     await this.$nextTick();
 
-                    // Solo renderizar si estamos en la vista dashboard
-                    if (this.currentView === 'dashboard') {
-                        setTimeout(() => {
-                            this.renderWeeklyProgressChart();
-                            this.renderCategoryChart();
-                        }, 300);
-                    }
+                    // Esperar a que Chart.js esté cargado
+                    let attempts = 0;
+                    const maxAttempts = 20;
+                    const waitForChart = setInterval(() => {
+                        attempts++;
+                        if (typeof Chart !== 'undefined') {
+                            clearInterval(waitForChart);
+                            console.log('Chart.js loaded after', attempts, 'attempts');
+
+                            // Solo renderizar si estamos en la vista dashboard
+                            if (this.currentView === 'dashboard') {
+                                setTimeout(() => {
+                                    console.log('Calling render methods from initCharts');
+                                    this.renderWeeklyProgressChart();
+                                    this.renderCategoryChart();
+                                }, 500);
+                            }
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(waitForChart);
+                            console.error('Chart.js failed to load after', maxAttempts, 'attempts');
+                        }
+                    }, 100);
                 },
 
                 // Método para re-renderizar gráficas cuando cambia la vista
                 refreshCharts() {
+                    console.log('=== refreshCharts called ===');
+                    console.log('currentView:', this.currentView);
+
                     if (this.currentView === 'dashboard') {
                         setTimeout(() => {
+                            console.log('Calling render methods from refreshCharts');
                             this.renderWeeklyProgressChart();
                             this.renderCategoryChart();
-                        }, 100);
+                        }, 200);
                     }
                 },
 
                 renderWeeklyProgressChart() {
                     try {
+                        console.log('=== renderWeeklyProgressChart called ===');
                         const canvas = document.getElementById('weeklyChart');
                         if (!canvas) {
-                            console.error('Canvas weeklyChart not found');
+                            console.error('Canvas weeklyChart not found in DOM');
                             return;
                         }
+
+                        console.log('Canvas found:', canvas);
+                        console.log('Canvas width:', canvas.width, 'height:', canvas.height);
+                        console.log('Canvas offsetWidth:', canvas.offsetWidth, 'offsetHeight:', canvas.offsetHeight);
+                        console.log('Canvas clientWidth:', canvas.clientWidth, 'clientHeight:', canvas.clientHeight);
 
                         const ctx = canvas.getContext('2d');
                         if (!ctx) {
                             console.error('Could not get 2d context from weeklyChart');
                             return;
                         }
+
+                        console.log('Context obtained:', ctx);
 
                     // Destroy existing chart
                     if (this.weeklyChart) {
@@ -3334,11 +3406,17 @@
 
                 renderCategoryChart() {
                     try {
+                        console.log('=== renderCategoryChart called ===');
+                        console.log('Number of tasks:', this.tasks.length);
+
                         const canvas = document.getElementById('categoryChart');
                         if (!canvas) {
-                            console.error('Canvas categoryChart not found');
+                            console.error('Canvas categoryChart not found in DOM');
                             return;
                         }
+
+                        console.log('Canvas found:', canvas);
+                        console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
 
                         const ctx = canvas.getContext('2d');
                         if (!ctx) {
@@ -3346,8 +3424,11 @@
                             return;
                         }
 
+                        console.log('Context obtained:', ctx);
+
                     // Destroy existing chart
                     if (this.categoryChart) {
+                        console.log('Destroying existing categoryChart');
                         this.categoryChart.destroy();
                     }
 
@@ -3360,6 +3441,10 @@
 
                     const labels = Object.keys(categoryCount);
                     const data = Object.values(categoryCount);
+
+                    console.log('Category data:', categoryCount);
+                    console.log('Labels:', labels);
+                    console.log('Data:', data);
 
                     const colors = [
                         'rgb(99, 102, 241)',
@@ -3711,6 +3796,9 @@
 
                 updateExpensesChart() {
                     try {
+                        console.log('=== updateExpensesChart called ===');
+                        console.log('financialSummary:', this.financialSummary);
+
                         if (!this.financialSummary) {
                             console.warn('No financial summary data available');
                             return;
@@ -3718,9 +3806,13 @@
 
                         const canvas = document.getElementById('expensesChart');
                         if (!canvas) {
-                            console.error('Canvas expensesChart not found');
+                            console.error('Canvas expensesChart not found in DOM');
                             return;
                         }
+
+                        console.log('Canvas found:', canvas);
+                        console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
+                        console.log('Canvas offsetDimensions:', canvas.offsetWidth, 'x', canvas.offsetHeight);
 
                         const ctx = canvas.getContext('2d');
                         if (!ctx) {
@@ -3728,13 +3820,18 @@
                             return;
                         }
 
+                        console.log('Context obtained:', ctx);
+
                         if (this.expensesChart) {
+                            console.log('Destroying existing expensesChart');
                             this.expensesChart.destroy();
                         }
 
                         const gastos = this.financialSummary.gastos_por_categoria || [];
+                        console.log('Gastos data:', gastos);
+
                         if (gastos.length === 0) {
-                            console.warn('No expenses data available');
+                            console.warn('No expenses data available - empty array');
                             return;
                         }
 
