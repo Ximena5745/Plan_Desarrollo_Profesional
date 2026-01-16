@@ -2367,9 +2367,14 @@
                     await this.loadWeeklyLogs();
                     await this.loadMonthlyPlans();
                     await this.loadCompetenciasEvolution();
-                    this.initCharts();
                     await this.loadFinancialCategories();
                     await this.loadFinancialSummary();
+
+                    // Inicializar charts DESPUÉS de que todos los datos estén cargados
+                    // y el DOM esté completamente estable
+                    setTimeout(() => {
+                        this.initCharts();
+                    }, 500);
                 },
                 
                 getUserInitials() {
@@ -3362,23 +3367,32 @@
                 // ========== GRÁFICAS - VERSIÓN SIMPLIFICADA ==========
 
                 initCharts() {
-                    // Esperar a que el DOM esté listo y Chart.js cargado
+                    // Esperar a que Chart.js esté cargado
                     if (typeof Chart === 'undefined') {
                         setTimeout(() => this.initCharts(), 200);
                         return;
                     }
 
-                    if (this.currentView === 'dashboard') {
-                        this.renderWeeklyChart();
-                        this.renderCategoryChart();
-                    }
+                    // Usar $nextTick para asegurar que Alpine terminó de renderizar
+                    this.$nextTick(() => {
+                        setTimeout(() => {
+                            if (this.currentView === 'dashboard') {
+                                this.renderWeeklyChart();
+                                this.renderCategoryChart();
+                            }
+                        }, 100);
+                    });
                 },
 
                 refreshCharts() {
-                    if (this.currentView === 'dashboard') {
-                        this.renderWeeklyChart();
-                        this.renderCategoryChart();
-                    }
+                    this.$nextTick(() => {
+                        setTimeout(() => {
+                            if (this.currentView === 'dashboard') {
+                                this.renderWeeklyChart();
+                                this.renderCategoryChart();
+                            }
+                        }, 100);
+                    });
                 },
 
                 renderWeeklyChart() {
