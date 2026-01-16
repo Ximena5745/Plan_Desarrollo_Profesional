@@ -3421,16 +3421,28 @@
                 },
 
                 renderWeeklyChart() {
-                    const canvas = document.getElementById('weeklyChart');
-                    if (!canvas) return;
+                    try {
+                        const canvas = document.getElementById('weeklyChart');
+                        if (!canvas) {
+                            console.log('weeklyChart canvas not found');
+                            return;
+                        }
 
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) return;
+                        // Verificar que el canvas es visible
+                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+                            console.log('weeklyChart canvas has no dimensions, retrying...');
+                            setTimeout(() => this.renderWeeklyChart(), 200);
+                            return;
+                        }
 
-                    // Destruir chart existente
-                    if (this.weeklyChart) {
-                        this.weeklyChart.destroy();
-                    }
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return;
+
+                        // Destruir chart existente
+                        if (this.weeklyChart) {
+                            this.weeklyChart.destroy();
+                            this.weeklyChart = null;
+                        }
 
                     // Datos de las últimas 7 semanas
                     const labels = [];
@@ -3479,19 +3491,35 @@
                             scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
                         }
                     });
+                    console.log('Weekly chart rendered');
+                    } catch (error) {
+                        console.error('Error rendering weekly chart:', error);
+                    }
                 },
 
                 renderCategoryChart() {
-                    const canvas = document.getElementById('categoryChart');
-                    if (!canvas) return;
+                    try {
+                        const canvas = document.getElementById('categoryChart');
+                        if (!canvas) {
+                            console.log('categoryChart canvas not found');
+                            return;
+                        }
 
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) return;
+                        // Verificar que el canvas es visible
+                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+                            console.log('categoryChart canvas has no dimensions, retrying...');
+                            setTimeout(() => this.renderCategoryChart(), 200);
+                            return;
+                        }
 
-                    // Destruir chart existente
-                    if (this.categoryChart) {
-                        this.categoryChart.destroy();
-                    }
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return;
+
+                        // Destruir chart existente
+                        if (this.categoryChart) {
+                            this.categoryChart.destroy();
+                            this.categoryChart = null;
+                        }
 
                     // Contar tareas por categoría
                     const categoryCount = {};
@@ -3521,6 +3549,10 @@
                             plugins: { legend: { position: 'right' } }
                         }
                     });
+                    console.log('Category chart rendered');
+                    } catch (error) {
+                        console.error('Error rendering category chart:', error);
+                    }
                 },
 
                 renderCompetenciasChart() {
