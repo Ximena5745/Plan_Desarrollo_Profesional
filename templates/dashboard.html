@@ -93,7 +93,7 @@
                 <li><a @click="currentView = 'weekly'" :class="currentView === 'weekly' ? 'active' : ''">
                     <i class="fas fa-book"></i> Bitácora Semanal
                 </a></li>
-                <li><a @click="currentView = 'financial'" :class="currentView === 'financial' ? 'active' : ''">
+                <li><a @click="currentView = 'financial'; $nextTick(() => { setTimeout(() => updateExpensesChart(), 300); })" :class="currentView === 'financial' ? 'active' : ''">
                     <i class="fas fa-dollar-sign"></i> Control Financiero
                 </a></li>
             </ul>
@@ -354,10 +354,19 @@
                                 <tbody>
                                     <!-- Mostrar todas las tareas con jerarquía visual -->
                                     <template x-for="task in filteredTasks" :key="task.id">
-                                        <tr x-show="!task.parent_task_id || showSubtasks"
+                                        <tr x-show="!task.parent_task_id || (showSubtasks && (expandedMacrotasks[task.parent_task_id] !== false))"
                                             :class="{'bg-base-200': task.es_macrotarea && !task.parent_task_id, 'hover': task.parent_task_id}">
                                             <td>
                                                 <div class="flex items-center gap-2" :class="{'pl-8': task.parent_task_id}">
+                                                    <!-- Botón expand/collapse para macrotareas -->
+                                                    <template x-if="task.es_macrotarea && !task.parent_task_id">
+                                                        <button class="btn btn-ghost btn-xs p-0 min-h-0 h-5 w-5"
+                                                                @click.stop="expandedMacrotasks[task.id] = expandedMacrotasks[task.id] === false ? true : false"
+                                                                :title="expandedMacrotasks[task.id] === false ? 'Expandir subtareas' : 'Colapsar subtareas'">
+                                                            <i :class="expandedMacrotasks[task.id] === false ? 'fas fa-chevron-right' : 'fas fa-chevron-down'" class="text-xs"></i>
+                                                        </button>
+                                                    </template>
+
                                                     <!-- Icono de jerarquía para subtareas -->
                                                     <template x-if="task.parent_task_id">
                                                         <i class="fas fa-level-up-alt fa-rotate-90 text-xs opacity-40"></i>
@@ -373,8 +382,7 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="badge badge-sm whitespace-normal text-left"
-                                                      :class="task.parent_task_id ? 'badge-ghost' : 'badge-outline'"
+                                                <span class="text-xs opacity-80"
                                                       :title="task.clasificacion"
                                                       x-text="task.clasificacion || 'N/A'"></span>
                                             </td>
@@ -1232,7 +1240,7 @@
             <!-- Tabs -->
             <div class="tabs tabs-boxed mb-4">
                 <a class="tab" :class="financialView === 'dashboard' ? 'tab-active' : ''"
-                   @click="financialView = 'dashboard'">
+                   @click="financialView = 'dashboard'; $nextTick(() => { setTimeout(() => updateExpensesChart(), 300); })">
                     <i class="fas fa-chart-pie mr-2"></i> Dashboard
                 </a>
                 <a class="tab" :class="financialView === 'registros' ? 'tab-active' : ''"
@@ -1891,6 +1899,19 @@
                             </label>
                         </div>
 
+                        <!-- Macrotarea Padre (solo si NO es macrotarea) -->
+                        <div class="form-control" x-show="!editingTask.es_macrotarea">
+                            <label class="label">
+                                <span class="label-text">Macrotarea Padre</span>
+                            </label>
+                            <select x-model="editingTask.parent_task_id" class="select select-bordered">
+                                <option value="">Sin macrotarea (tarea independiente)</option>
+                                <template x-for="task in tasks.filter(t => t.es_macrotarea && t.id !== editingTask.id)" :key="task.id">
+                                    <option :value="task.id" x-text="task.titulo"></option>
+                                </template>
+                            </select>
+                        </div>
+
                         <!-- Observaciones -->
                         <div class="form-control md:col-span-2">
                             <label class="label">
@@ -2162,6 +2183,7 @@
                 toastMessage: '',
                 toastType: 'success',
                 showSubtasks: true,
+                expandedMacrotasks: {}, // Control de expansión por macrotarea
 
                 // Filtros de tareas
                 filterEstado: '',
@@ -2204,7 +2226,8 @@
                     prioridad: 'media',
                     progreso: 0,
                     es_macrotarea: false,
-                    observaciones: ''
+                    observaciones: '',
+                    parent_task_id: ''
                 },
                 viewingWeeklyLog: null,
                 editingWeeklyLog: {
@@ -3346,10 +3369,12 @@
                             return;
                         }
 
-                        console.log('Canvas found:', canvas);
-                        console.log('Canvas width:', canvas.width, 'height:', canvas.height);
-                        console.log('Canvas offsetWidth:', canvas.offsetWidth, 'offsetHeight:', canvas.offsetHeight);
-                        console.log('Canvas clientWidth:', canvas.clientWidth, 'clientHeight:', canvas.clientHeight);
+                        // Verificar que el canvas tenga dimensiones válidas
+                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+                            console.warn('Canvas weeklyChart has no visible dimensions, retrying in 300ms...');
+                            setTimeout(() => this.renderWeeklyProgressChart(), 300);
+                            return;
+                        }
 
                         const ctx = canvas.getContext('2d');
                         if (!ctx) {
@@ -3357,12 +3382,14 @@
                             return;
                         }
 
-                        console.log('Context obtained:', ctx);
-
                     // Destroy existing chart
                     if (this.weeklyChart) {
                         this.weeklyChart.destroy();
+                        this.weeklyChart = null;
                     }
+
+                    // Limpiar el canvas
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                     // Datos de ejemplo (últimas 7 semanas)
                     const labels = [];
@@ -3436,8 +3463,12 @@
                             return;
                         }
 
-                        console.log('Canvas found:', canvas);
-                        console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
+                        // Verificar que el canvas tenga dimensiones válidas
+                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+                            console.warn('Canvas categoryChart has no visible dimensions, retrying in 300ms...');
+                            setTimeout(() => this.renderCategoryChart(), 300);
+                            return;
+                        }
 
                         const ctx = canvas.getContext('2d');
                         if (!ctx) {
@@ -3445,13 +3476,15 @@
                             return;
                         }
 
-                        console.log('Context obtained:', ctx);
-
                     // Destroy existing chart
                     if (this.categoryChart) {
                         console.log('Destroying existing categoryChart');
                         this.categoryChart.destroy();
+                        this.categoryChart = null;
                     }
+
+                    // Limpiar el canvas
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                     // Contar tareas por categoría
                     const categoryCount = {};
@@ -3818,10 +3851,16 @@
                 updateExpensesChart() {
                     try {
                         console.log('=== updateExpensesChart called ===');
-                        console.log('financialSummary:', this.financialSummary);
 
                         if (!this.financialSummary) {
                             console.warn('No financial summary data available');
+                            return;
+                        }
+
+                        const gastos = this.financialSummary.gastos_por_categoria || [];
+                        if (gastos.length === 0) {
+                            console.warn('No expenses data available - empty array');
+                            // Mostrar mensaje de no hay datos
                             return;
                         }
 
@@ -3831,9 +3870,12 @@
                             return;
                         }
 
-                        console.log('Canvas found:', canvas);
-                        console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
-                        console.log('Canvas offsetDimensions:', canvas.offsetWidth, 'x', canvas.offsetHeight);
+                        // Verificar que el canvas tenga dimensiones válidas
+                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+                            console.warn('Canvas expensesChart has no visible dimensions, retrying in 500ms...');
+                            setTimeout(() => this.updateExpensesChart(), 500);
+                            return;
+                        }
 
                         const ctx = canvas.getContext('2d');
                         if (!ctx) {
@@ -3841,20 +3883,15 @@
                             return;
                         }
 
-                        console.log('Context obtained:', ctx);
-
                         if (this.expensesChart) {
-                            console.log('Destroying existing expensesChart');
                             this.expensesChart.destroy();
+                            this.expensesChart = null;
                         }
 
-                        const gastos = this.financialSummary.gastos_por_categoria || [];
+                        // Limpiar el canvas
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
                         console.log('Gastos data:', gastos);
-
-                        if (gastos.length === 0) {
-                            console.warn('No expenses data available - empty array');
-                            return;
-                        }
 
                         const colors = gastos.map(g => {
                             const cat = this.financialCategories.find(c => c.nombre === g.categoria);
