@@ -3746,11 +3746,13 @@
                         const response = await this.apiCall(`/api/financial/summary?mes=${queryMes}`);
                         if (response) {
                             this.financialSummary = response;
-                            // Esperar a que el DOM esté listo antes de renderizar la gráfica
-                            await this.$nextTick();
-                            setTimeout(() => {
-                                this.updateExpensesChart();
-                            }, 200);
+                            // Solo renderizar si estamos en la vista financiera
+                            if (this.currentView === 'financial') {
+                                await this.$nextTick();
+                                setTimeout(() => {
+                                    this.updateExpensesChart();
+                                }, 200);
+                            }
                         }
                     } catch (error) {
                         console.error('Error loading summary:', error);
