@@ -81,19 +81,19 @@
         <!-- Navigation Menu -->
         <div class="flex-none hidden lg:flex">
             <ul class="menu menu-horizontal px-1">
-                <li><a @click="currentView = 'dashboard'; refreshCharts()" :class="currentView === 'dashboard' ? 'active' : ''">
+                <li><a @click="navigateTo('dashboard')" :class="currentView === 'dashboard' ? 'active' : ''">
                     <i class="fas fa-home"></i> Dashboard
                 </a></li>
-                <li><a @click="currentView = 'tasks'" :class="currentView === 'tasks' ? 'active' : ''">
+                <li><a @click="navigateTo('tasks')" :class="currentView === 'tasks' ? 'active' : ''">
                     <i class="fas fa-tasks"></i> Tareas
                 </a></li>
-                <li><a @click="currentView = 'monthly'" :class="currentView === 'monthly' ? 'active' : ''">
+                <li><a @click="navigateTo('monthly')" :class="currentView === 'monthly' ? 'active' : ''">
                     <i class="fas fa-calendar-alt"></i> Plan Mensual
                 </a></li>
-                <li><a @click="currentView = 'weekly'" :class="currentView === 'weekly' ? 'active' : ''">
+                <li><a @click="navigateTo('weekly')" :class="currentView === 'weekly' ? 'active' : ''">
                     <i class="fas fa-book"></i> Bitácora Semanal
                 </a></li>
-                <li><a @click="currentView = 'financial'; loadFinancialSummary()" :class="currentView === 'financial' ? 'active' : ''">
+                <li><a @click="navigateTo('financial')" :class="currentView === 'financial' ? 'active' : ''">
                     <i class="fas fa-dollar-sign"></i> Control Financiero
                 </a></li>
             </ul>
@@ -134,10 +134,11 @@
             <div class="drawer-side z-50">
                 <label for="mobile-drawer" class="drawer-overlay"></label>
                 <ul class="menu p-4 w-80 min-h-full bg-base-100">
-                    <li><a @click="currentView = 'dashboard'; refreshCharts()"><i class="fas fa-home"></i> Dashboard</a></li>
-                    <li><a @click="currentView = 'tasks'"><i class="fas fa-tasks"></i> Tareas</a></li>
-                    <li><a @click="currentView = 'monthly'"><i class="fas fa-calendar-alt"></i> Plan Mensual</a></li>
-                    <li><a @click="currentView = 'weekly'"><i class="fas fa-book"></i> Bitácora Semanal</a></li>
+                    <li><a @click="navigateTo('dashboard')"><i class="fas fa-home"></i> Dashboard</a></li>
+                    <li><a @click="navigateTo('tasks')"><i class="fas fa-tasks"></i> Tareas</a></li>
+                    <li><a @click="navigateTo('monthly')"><i class="fas fa-calendar-alt"></i> Plan Mensual</a></li>
+                    <li><a @click="navigateTo('weekly')"><i class="fas fa-book"></i> Bitácora Semanal</a></li>
+                    <li><a @click="navigateTo('financial')"><i class="fas fa-dollar-sign"></i> Control Financiero</a></li>
                 </ul>
             </div>
         </div>
@@ -2780,7 +2781,12 @@
                         const response = await this.apiCall('/api/monthly/evolution?months=6');
                         if (response) {
                             this.competenciasEvolution = response.evolution;
-                            this.renderEvolutionChart();
+                            // Solo renderizar si estamos en la vista monthly
+                            if (this.currentView === 'monthly') {
+                                this.$nextTick(() => {
+                                    setTimeout(() => this.renderEvolutionChart(), 100);
+                                });
+                            }
                         }
                     } catch (error) {
                         console.error('Error loading evolution:', error);
@@ -2842,7 +2848,12 @@
                         const response = await this.apiCall(`/api/monthly/comparison/${planId}`);
                         if (response) {
                             this.planComparison = response;
-                            this.renderCompetenciasChart();
+                            // Solo renderizar si estamos en la vista monthly
+                            if (this.currentView === 'monthly') {
+                                this.$nextTick(() => {
+                                    setTimeout(() => this.renderCompetenciasChart(), 100);
+                                });
+                            }
                         }
                     } catch (error) {
                         console.error('Error loading comparison:', error);
@@ -3390,9 +3401,23 @@
                             if (this.currentView === 'dashboard') {
                                 this.renderWeeklyChart();
                                 this.renderCategoryChart();
+                            } else if (this.currentView === 'monthly') {
+                                if (this.competenciasEvolution && Object.keys(this.competenciasEvolution).length > 0) {
+                                    this.renderEvolutionChart();
+                                }
+                                if (this.planComparison) {
+                                    this.renderCompetenciasChart();
+                                }
+                            } else if (this.currentView === 'financial') {
+                                this.updateExpensesChart();
                             }
                         }, 100);
                     });
+                },
+
+                navigateTo(view) {
+                    this.currentView = view;
+                    this.refreshCharts();
                 },
 
                 renderWeeklyChart() {
