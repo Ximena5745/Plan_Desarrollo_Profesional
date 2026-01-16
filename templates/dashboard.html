@@ -3787,57 +3787,58 @@
                 },
 
                 updateExpensesChart() {
-                    if (!this.financialSummary) return;
+                    try {
+                        if (!this.financialSummary) return;
 
-                    const gastos = this.financialSummary.gastos_por_categoria || [];
-                    if (gastos.length === 0) return;
+                        const gastos = this.financialSummary.gastos_por_categoria || [];
+                        if (gastos.length === 0) return;
 
-                    const canvas = document.getElementById('expensesChart');
-                    if (!canvas) return;
+                        const canvas = document.getElementById('expensesChart');
+                        if (!canvas) return;
 
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) return;
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return;
 
-                    // Destruir chart existente
-                    if (this.expensesChart) {
-                        this.expensesChart.destroy();
-                    }
+                        // Destruir chart existente
+                        if (this.expensesChart) {
+                            this.expensesChart.destroy();
+                        }
 
-                    const colors = gastos.map(g => {
-                        const cat = this.financialCategories.find(c => c.nombre === g.categoria);
-                        return cat ? cat.color : '#6366f1';
-                    });
+                        const colors = gastos.map(g => {
+                            const cat = this.financialCategories.find(c => c.nombre === g.categoria);
+                            return cat ? cat.color : '#6366f1';
+                        });
 
-                    this.expensesChart = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: gastos.map(g => g.categoria),
-                            datasets: [{
-                                data: gastos.map(g => g.monto),
-                                backgroundColor: colors,
-                                borderWidth: 2,
-                                borderColor: '#fff'
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { position: 'right' },
-                                tooltip: {
-                                    callbacks: {
-                                        label: (context) => {
-                                            const value = context.parsed || 0;
-                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                            const pct = ((value / total) * 100).toFixed(1);
-                                            return `${context.label}: $${value.toFixed(2)} (${pct}%)`;
+                        this.expensesChart = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: gastos.map(g => g.categoria),
+                                datasets: [{
+                                    data: gastos.map(g => g.monto),
+                                    backgroundColor: colors,
+                                    borderWidth: 2,
+                                    borderColor: '#fff'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { position: 'right' },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: (context) => {
+                                                const value = context.parsed || 0;
+                                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                                const pct = ((value / total) * 100).toFixed(1);
+                                                return `${context.label}: $${value.toFixed(2)} (${pct}%)`;
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                    });
-                    console.log('Expenses chart rendered successfully');
+                        });
+                        console.log('Expenses chart rendered successfully');
                     } catch (error) {
                         console.error('Error rendering expenses chart:', error);
                     }
