@@ -93,7 +93,7 @@
                 <li><a @click="currentView = 'weekly'" :class="currentView === 'weekly' ? 'active' : ''">
                     <i class="fas fa-book"></i> Bitácora Semanal
                 </a></li>
-                <li><a @click="currentView = 'financial'; $nextTick(() => { setTimeout(() => updateExpensesChart(), 300); })" :class="currentView === 'financial' ? 'active' : ''">
+                <li><a @click="currentView = 'financial'; loadFinancialSummary()" :class="currentView === 'financial' ? 'active' : ''">
                     <i class="fas fa-dollar-sign"></i> Control Financiero
                 </a></li>
             </ul>
@@ -1242,7 +1242,7 @@
             <!-- Tabs -->
             <div class="tabs tabs-boxed mb-4">
                 <a class="tab" :class="financialView === 'dashboard' ? 'tab-active' : ''"
-                   @click="financialView = 'dashboard'; $nextTick(() => { setTimeout(() => updateExpensesChart(), 300); })">
+                   @click="financialView = 'dashboard'; loadFinancialSummary()">
                     <i class="fas fa-chart-pie mr-2"></i> Dashboard
                 </a>
                 <a class="tab" :class="financialView === 'registros' ? 'tab-active' : ''"
