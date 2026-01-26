@@ -19,7 +19,12 @@
       "Bash(python:*)",
       "Bash(pip install:*)",
       "Bash(pip uninstall:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(timeout /t 3)",
+      "Bash(timeout /t)",
+      "Bash(git restore:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)"
     ]
   }
 }

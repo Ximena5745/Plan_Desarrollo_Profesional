@@ -3408,7 +3408,7 @@
                                 if (this.planComparison) {
                                     this.renderCompetenciasChart();
                                 }
-                            } else if (this.currentView === 'financial') {
+                            } else if (this.currentView === 'financial' && this.financialView === 'dashboard') {
                                 this.updateExpensesChart();
                             }
                         }, 100);
@@ -3443,6 +3443,13 @@
                             this.weeklyChart.destroy();
                             this.weeklyChart = null;
                         }
+
+                    // Verificar que hay tareas
+                    if (!this.tasks) {
+                        console.log('Tasks not loaded yet for weekly chart, retrying...');
+                        setTimeout(() => this.renderWeeklyChart(), 500);
+                        return;
+                    }
 
                     // Datos de las últimas 7 semanas
                     const labels = [];
@@ -3521,6 +3528,13 @@
                             this.categoryChart = null;
                         }
 
+                    // Verificar que hay tareas
+                    if (!this.tasks || this.tasks.length === 0) {
+                        console.log('No tasks available for category chart, retrying...');
+                        setTimeout(() => this.renderCategoryChart(), 500);
+                        return;
+                    }
+
                     // Contar tareas por categoría
                     const categoryCount = {};
                     this.tasks.forEach(task => {
@@ -3565,6 +3579,13 @@
                         const canvas = document.getElementById('competenciasChart');
                         if (!canvas) {
                             console.error('Canvas competenciasChart not found');
+                            return;
+                        }
+
+                        // Verificar que el canvas es visible
+                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+                            console.log('competenciasChart canvas has no dimensions, retrying...');
+                            setTimeout(() => this.renderCompetenciasChart(), 200);
                             return;
                         }
 
@@ -3651,6 +3672,13 @@
                         const canvas = document.getElementById('evolutionChart');
                         if (!canvas) {
                             console.error('Canvas evolutionChart not found');
+                            return;
+                        }
+
+                        // Verificar que el canvas es visible
+                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+                            console.log('evolutionChart canvas has no dimensions, retrying...');
+                            setTimeout(() => this.renderEvolutionChart(), 200);
                             return;
                         }
 
@@ -3868,6 +3896,13 @@
 
                         const canvas = document.getElementById('expensesChart');
                         if (!canvas) return;
+
+                        // Verificar que el canvas es visible
+                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
+                            console.log('expensesChart canvas has no dimensions, retrying...');
+                            setTimeout(() => this.updateExpensesChart(), 200);
+                            return;
+                        }
 
                         const ctx = canvas.getContext('2d');
                         if (!ctx) return;
