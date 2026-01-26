@@ -12,9 +12,8 @@
     <!-- Alpine.js para interactividad -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
     
-    <!-- Chart.js para gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <!-- ApexCharts para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -195,7 +194,7 @@
                     <div class="card-body">
                         <h2 class="card-title"><i class="fas fa-chart-line text-primary"></i> Progreso Semanal</h2>
                         <div style="height: 280px; position: relative;">
-                            <canvas id="weeklyChart" x-ref="weeklyChart"></canvas>
+                            <div id="weeklyChart"></div>
                         </div>
                     </div>
                 </div>
@@ -205,7 +204,7 @@
                     <div class="card-body">
                         <h2 class="card-title"><i class="fas fa-chart-pie text-secondary"></i> Tareas por Categoría</h2>
                         <div style="height: 280px; position: relative;">
-                            <canvas id="categoryChart" x-ref="categoryChart"></canvas>
+                            <div id="categoryChart"></div>
                         </div>
                     </div>
                 </div>
@@ -1020,7 +1019,7 @@
                                 Comparación Inicio vs Fin
                             </h3>
                             <div style="height: 400px;">
-                                <canvas id="competenciasChart"></canvas>
+                                <div id="competenciasChart"></div>
                             </div>
                         </div>
                     </div>
@@ -1033,7 +1032,7 @@
                                 Evolución en el Tiempo
                             </h3>
                             <div style="height: 400px;">
-                                <canvas id="evolutionChart"></canvas>
+                                <div id="evolutionChart"></div>
                             </div>
                         </div>
                     </div>
@@ -1305,7 +1304,7 @@
                         <div class="card-body">
                             <h2 class="card-title"><i class="fas fa-chart-pie text-error"></i> Distribución de Gastos</h2>
                             <div style="height: 280px; position: relative;">
-                                <canvas id="expensesChart" x-ref="expensesChart"></canvas>
+                                <div id="expensesChart"></div>
                             </div>
                             <div x-show="!financialSummary?.gastos_por_categoria?.length" class="text-center text-gray-500 py-8">
                                 <i class="fas fa-chart-pie text-4xl mb-2 opacity-30"></i>
@@ -3375,11 +3374,11 @@
                     window.location.href = '/login';
                 },
                 
-                // ========== GRÁFICAS - VERSIÓN SIMPLIFICADA ==========
+                // ========== GRÁFICAS CON APEXCHARTS ==========
 
                 initCharts() {
-                    // Esperar a que Chart.js esté cargado
-                    if (typeof Chart === 'undefined') {
+                    // Esperar a que ApexCharts esté cargado
+                    if (typeof ApexCharts === 'undefined') {
                         setTimeout(() => this.initCharts(), 200);
                         return;
                     }
@@ -3422,21 +3421,18 @@
 
                 renderWeeklyChart() {
                     try {
-                        const canvas = document.getElementById('weeklyChart');
-                        if (!canvas) {
-                            console.log('weeklyChart canvas not found');
+                        const container = document.getElementById('weeklyChart');
+                        if (!container) {
+                            console.log('weeklyChart container not found');
                             return;
                         }
 
-                        // Verificar que el canvas es visible
-                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
-                            console.log('weeklyChart canvas has no dimensions, retrying...');
-                            setTimeout(() => this.renderWeeklyChart(), 200);
+                        // Verificar que hay tareas
+                        if (!this.tasks) {
+                            console.log('Tasks not loaded yet for weekly chart, retrying...');
+                            setTimeout(() => this.renderWeeklyChart(), 500);
                             return;
                         }
-
-                        const ctx = canvas.getContext('2d');
-                        if (!ctx) return;
 
                         // Destruir chart existente
                         if (this.weeklyChart) {
@@ -3444,61 +3440,70 @@
                             this.weeklyChart = null;
                         }
 
-                    // Verificar que hay tareas
-                    if (!this.tasks) {
-                        console.log('Tasks not loaded yet for weekly chart, retrying...');
-                        setTimeout(() => this.renderWeeklyChart(), 500);
-                        return;
-                    }
+                        // Datos de las últimas 7 semanas
+                        const labels = [];
+                        const completedData = [];
+                        const pendingData = [];
 
-                    // Datos de las últimas 7 semanas
-                    const labels = [];
-                    const completedData = [];
-                    const pendingData = [];
+                        for (let i = 6; i >= 0; i--) {
+                            const d = new Date();
+                            d.setDate(d.getDate() - (i * 7));
+                            labels.push(`${d.getDate()}/${d.getMonth() + 1}`);
 
-                    for (let i = 6; i >= 0; i--) {
-                        const d = new Date();
-                        d.setDate(d.getDate() - (i * 7));
-                        labels.push(`${d.getDate()}/${d.getMonth() + 1}`);
+                            const weekStart = new Date(d);
+                            weekStart.setDate(weekStart.getDate() - 7);
 
-                        // Usar datos reales de tareas
-                        const weekStart = new Date(d);
-                        weekStart.setDate(weekStart.getDate() - 7);
+                            const completed = this.tasks.filter(t => {
+                                if (t.estado !== 'completada') return false;
+                                const taskDate = new Date(t.fecha_fin);
+                                return taskDate >= weekStart && taskDate <= d;
+                            }).length;
 
-                        const completed = this.tasks.filter(t => {
-                            if (t.estado !== 'completada') return false;
-                            const taskDate = new Date(t.fecha_fin);
-                            return taskDate >= weekStart && taskDate <= d;
-                        }).length;
+                            const pending = this.tasks.filter(t => {
+                                if (t.estado === 'completada') return false;
+                                const taskDate = new Date(t.fecha_inicio || t.fecha);
+                                return taskDate >= weekStart && taskDate <= d;
+                            }).length;
 
-                        completedData.push(completed || Math.floor(Math.random() * 3) + 1);
-                        pendingData.push(Math.floor(Math.random() * 4) + 2);
-                    }
-
-                    this.weeklyChart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Completadas',
-                                data: completedData,
-                                backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                                borderRadius: 4
-                            }, {
-                                label: 'En progreso',
-                                data: pendingData,
-                                backgroundColor: 'rgba(99, 102, 241, 0.8)',
-                                borderRadius: 4
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { position: 'top' } },
-                            scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                            completedData.push(completed || Math.floor(Math.random() * 3) + 1);
+                            pendingData.push(pending || Math.floor(Math.random() * 4) + 2);
                         }
-                    });
-                    console.log('Weekly chart rendered');
+
+                        const options = {
+                            series: [{
+                                name: 'Completadas',
+                                data: completedData
+                            }, {
+                                name: 'En progreso',
+                                data: pendingData
+                            }],
+                            chart: {
+                                type: 'bar',
+                                height: 280,
+                                toolbar: { show: false }
+                            },
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 4,
+                                    columnWidth: '60%'
+                                }
+                            },
+                            colors: ['#22c55e', '#6366f1'],
+                            dataLabels: { enabled: false },
+                            xaxis: { categories: labels },
+                            yaxis: {
+                                min: 0,
+                                forceNiceScale: true,
+                                labels: {
+                                    formatter: (val) => Math.floor(val)
+                                }
+                            },
+                            legend: { position: 'top' }
+                        };
+
+                        this.weeklyChart = new ApexCharts(container, options);
+                        this.weeklyChart.render();
+                        console.log('Weekly chart rendered');
                     } catch (error) {
                         console.error('Error rendering weekly chart:', error);
                     }
@@ -3506,21 +3511,18 @@
 
                 renderCategoryChart() {
                     try {
-                        const canvas = document.getElementById('categoryChart');
-                        if (!canvas) {
-                            console.log('categoryChart canvas not found');
+                        const container = document.getElementById('categoryChart');
+                        if (!container) {
+                            console.log('categoryChart container not found');
                             return;
                         }
 
-                        // Verificar que el canvas es visible
-                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
-                            console.log('categoryChart canvas has no dimensions, retrying...');
-                            setTimeout(() => this.renderCategoryChart(), 200);
+                        // Verificar que hay tareas
+                        if (!this.tasks || this.tasks.length === 0) {
+                            console.log('No tasks available for category chart, retrying...');
+                            setTimeout(() => this.renderCategoryChart(), 500);
                             return;
                         }
-
-                        const ctx = canvas.getContext('2d');
-                        if (!ctx) return;
 
                         // Destruir chart existente
                         if (this.categoryChart) {
@@ -3528,42 +3530,39 @@
                             this.categoryChart = null;
                         }
 
-                    // Verificar que hay tareas
-                    if (!this.tasks || this.tasks.length === 0) {
-                        console.log('No tasks available for category chart, retrying...');
-                        setTimeout(() => this.renderCategoryChart(), 500);
-                        return;
-                    }
+                        // Contar tareas por categoría
+                        const categoryCount = {};
+                        this.tasks.forEach(task => {
+                            const cat = task.categoria || 'Sin categoría';
+                            categoryCount[cat] = (categoryCount[cat] || 0) + 1;
+                        });
 
-                    // Contar tareas por categoría
-                    const categoryCount = {};
-                    this.tasks.forEach(task => {
-                        const cat = task.categoria || 'Sin categoría';
-                        categoryCount[cat] = (categoryCount[cat] || 0) + 1;
-                    });
+                        const labels = Object.keys(categoryCount);
+                        const data = Object.values(categoryCount);
+                        const colors = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'];
 
-                    const labels = Object.keys(categoryCount);
-                    const data = Object.values(categoryCount);
-                    const colors = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6'];
-
-                    this.categoryChart = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
+                        const options = {
+                            series: data,
+                            chart: {
+                                type: 'donut',
+                                height: 280
+                            },
                             labels: labels,
-                            datasets: [{
-                                data: data,
-                                backgroundColor: colors.slice(0, labels.length),
-                                borderWidth: 2,
-                                borderColor: '#fff'
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { position: 'right' } }
-                        }
-                    });
-                    console.log('Category chart rendered');
+                            colors: colors.slice(0, labels.length),
+                            plotOptions: {
+                                pie: {
+                                    donut: {
+                                        size: '60%'
+                                    }
+                                }
+                            },
+                            legend: { position: 'right' },
+                            dataLabels: { enabled: false }
+                        };
+
+                        this.categoryChart = new ApexCharts(container, options);
+                        this.categoryChart.render();
+                        console.log('Category chart rendered');
                     } catch (error) {
                         console.error('Error rendering category chart:', error);
                     }
@@ -3576,87 +3575,65 @@
                             return;
                         }
 
-                        const canvas = document.getElementById('competenciasChart');
-                        if (!canvas) {
-                            console.error('Canvas competenciasChart not found');
+                        const container = document.getElementById('competenciasChart');
+                        if (!container) {
+                            console.error('Container competenciasChart not found');
                             return;
                         }
 
-                        // Verificar que el canvas es visible
-                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
-                            console.log('competenciasChart canvas has no dimensions, retrying...');
-                            setTimeout(() => this.renderCompetenciasChart(), 200);
-                            return;
+                        // Destruir chart existente
+                        if (this.competenciasChart) {
+                            this.competenciasChart.destroy();
                         }
 
-                        const ctx = canvas.getContext('2d');
-                        if (!ctx) {
-                            console.error('Could not get 2d context from competenciasChart');
-                            return;
-                        }
+                        const competencias = this.planComparison.competencias_stats.competencias;
 
-                    // Destroy existing chart
-                    if (this.competenciasChart) {
-                        this.competenciasChart.destroy();
-                    }
-
-                    const competencias = this.planComparison.competencias_stats.competencias;
-
-                    this.competenciasChart = new Chart(ctx, {
-                        type: 'bar',
-                        data: {
-                            labels: competencias.map(c => c.nombre),
-                            datasets: [
+                        const options = {
+                            series: [
                                 {
-                                    label: 'Progreso Inicio',
-                                    data: competencias.map(c => c.progreso_inicio || 0),
-                                    backgroundColor: 'rgba(99, 102, 241, 0.5)',
-                                    borderColor: 'rgb(99, 102, 241)',
-                                    borderWidth: 1
+                                    name: 'Progreso Inicio',
+                                    data: competencias.map(c => c.progreso_inicio || 0)
                                 },
                                 {
-                                    label: 'Progreso Actual',
-                                    data: competencias.map(c => c.progreso_actual || 0),
-                                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
-                                    borderColor: 'rgb(34, 197, 94)',
-                                    borderWidth: 1
+                                    name: 'Progreso Actual',
+                                    data: competencias.map(c => c.progreso_actual || 0)
                                 },
                                 {
-                                    label: 'Progreso Fin',
-                                    data: competencias.map(c => c.progreso_fin || 0),
-                                    backgroundColor: 'rgba(139, 92, 246, 0.5)',
-                                    borderColor: 'rgb(139, 92, 246)',
-                                    borderWidth: 1
+                                    name: 'Progreso Fin',
+                                    data: competencias.map(c => c.progreso_fin || 0)
                                 }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    max: 100,
-                                    ticks: {
-                                        callback: function(value) {
-                                            return value + '%';
-                                        }
-                                    }
+                            ],
+                            chart: {
+                                type: 'bar',
+                                height: 300,
+                                toolbar: { show: false }
+                            },
+                            plotOptions: {
+                                bar: {
+                                    borderRadius: 4,
+                                    columnWidth: '70%'
                                 }
                             },
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: 'Comparación de Progreso por Competencia'
-                                },
-                                legend: {
-                                    display: true,
-                                    position: 'top'
+                            colors: ['#6366f1', '#22c55e', '#8b5cf6'],
+                            dataLabels: { enabled: false },
+                            xaxis: { categories: competencias.map(c => c.nombre) },
+                            yaxis: {
+                                min: 0,
+                                max: 100,
+                                labels: {
+                                    formatter: (val) => val + '%'
                                 }
+                            },
+                            legend: { position: 'top' },
+                            title: {
+                                text: 'Comparación de Progreso por Competencia',
+                                align: 'center'
                             }
-                        }
-                    });
-                    console.log('Competencias chart rendered successfully');
+                        };
+
+                        this.competenciasChart = new ApexCharts(container, options);
+                        this.competenciasChart.render();
+                        console.log('Competencias chart rendered successfully');
                     } catch (error) {
                         console.error('Error rendering competencias chart:', error);
                     }
@@ -3669,104 +3646,67 @@
                             return;
                         }
 
-                        const canvas = document.getElementById('evolutionChart');
-                        if (!canvas) {
-                            console.error('Canvas evolutionChart not found');
+                        const container = document.getElementById('evolutionChart');
+                        if (!container) {
+                            console.error('Container evolutionChart not found');
                             return;
                         }
 
-                        // Verificar que el canvas es visible
-                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
-                            console.log('evolutionChart canvas has no dimensions, retrying...');
-                            setTimeout(() => this.renderEvolutionChart(), 200);
-                            return;
+                        // Destruir chart existente
+                        if (this.evolutionChart) {
+                            this.evolutionChart.destroy();
                         }
 
-                        const ctx = canvas.getContext('2d');
-                        if (!ctx) {
-                            console.error('Could not get 2d context from evolutionChart');
-                            return;
-                        }
+                        const colors = ['#6366f1', '#22c55e', '#8b5cf6', '#ec4899', '#fbbf24', '#3b82f6'];
 
-                    // Destroy existing chart
-                    if (this.evolutionChart) {
-                        this.evolutionChart.destroy();
-                    }
+                        const series = Object.keys(this.competenciasEvolution).map((competencia, index) => {
+                            const data = this.competenciasEvolution[competencia];
+                            return {
+                                name: competencia,
+                                data: data.map(d => ({
+                                    x: new Date(d.mes).getTime(),
+                                    y: d.progreso_fin || d.progreso_actual
+                                }))
+                            };
+                        });
 
-                    // Preparar datos
-                    const colors = [
-                        'rgb(99, 102, 241)',
-                        'rgb(34, 197, 94)',
-                        'rgb(139, 92, 246)',
-                        'rgb(236, 72, 153)',
-                        'rgb(251, 191, 36)',
-                        'rgb(59, 130, 246)'
-                    ];
-
-                    const datasets = Object.keys(this.competenciasEvolution).map((competencia, index) => {
-                        const data = this.competenciasEvolution[competencia];
-                        return {
-                            label: competencia,
-                            data: data.map(d => ({
-                                x: d.mes,
-                                y: d.progreso_fin || d.progreso_actual
-                            })),
-                            borderColor: colors[index % colors.length],
-                            backgroundColor: colors[index % colors.length].replace(')', ', 0.1)').replace('rgb', 'rgba'),
-                            tension: 0.4,
-                            fill: false
-                        };
-                    });
-
-                    this.evolutionChart = new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            datasets: datasets
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            scales: {
-                                x: {
-                                    type: 'time',
-                                    time: {
-                                        unit: 'month',
-                                        displayFormats: {
-                                            month: 'MMM yyyy'
-                                        }
-                                    },
-                                    title: {
-                                        display: true,
-                                        text: 'Mes'
-                                    }
-                                },
-                                y: {
-                                    beginAtZero: true,
-                                    max: 100,
-                                    ticks: {
-                                        callback: function(value) {
-                                            return value + '%';
-                                        }
-                                    },
-                                    title: {
-                                        display: true,
-                                        text: 'Progreso'
-                                    }
-                                }
+                        const options = {
+                            series: series,
+                            chart: {
+                                type: 'line',
+                                height: 300,
+                                toolbar: { show: false }
                             },
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: 'Evolución de Competencias (Últimos 6 Meses)'
+                            colors: colors,
+                            stroke: {
+                                curve: 'smooth',
+                                width: 2
+                            },
+                            xaxis: {
+                                type: 'datetime',
+                                labels: {
+                                    format: 'MMM yyyy'
                                 },
-                                legend: {
-                                    display: true,
-                                    position: 'top'
-                                }
+                                title: { text: 'Mes' }
+                            },
+                            yaxis: {
+                                min: 0,
+                                max: 100,
+                                labels: {
+                                    formatter: (val) => val + '%'
+                                },
+                                title: { text: 'Progreso' }
+                            },
+                            legend: { position: 'top' },
+                            title: {
+                                text: 'Evolución de Competencias (Últimos 6 Meses)',
+                                align: 'center'
                             }
-                        }
-                    });
-                    console.log('Evolution chart rendered successfully');
+                        };
+
+                        this.evolutionChart = new ApexCharts(container, options);
+                        this.evolutionChart.render();
+                        console.log('Evolution chart rendered successfully');
                     } catch (error) {
                         console.error('Error rendering evolution chart:', error);
                     }
@@ -3894,18 +3834,8 @@
                         const gastos = this.financialSummary.gastos_por_categoria || [];
                         if (gastos.length === 0) return;
 
-                        const canvas = document.getElementById('expensesChart');
-                        if (!canvas) return;
-
-                        // Verificar que el canvas es visible
-                        if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
-                            console.log('expensesChart canvas has no dimensions, retrying...');
-                            setTimeout(() => this.updateExpensesChart(), 200);
-                            return;
-                        }
-
-                        const ctx = canvas.getContext('2d');
-                        if (!ctx) return;
+                        const container = document.getElementById('expensesChart');
+                        if (!container) return;
 
                         // Destruir chart existente
                         if (this.expensesChart) {
@@ -3917,35 +3847,36 @@
                             return cat ? cat.color : '#6366f1';
                         });
 
-                        this.expensesChart = new Chart(ctx, {
-                            type: 'doughnut',
-                            data: {
-                                labels: gastos.map(g => g.categoria),
-                                datasets: [{
-                                    data: gastos.map(g => g.monto),
-                                    backgroundColor: colors,
-                                    borderWidth: 2,
-                                    borderColor: '#fff'
-                                }]
+                        const options = {
+                            series: gastos.map(g => g.monto),
+                            chart: {
+                                type: 'donut',
+                                height: 280
                             },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    legend: { position: 'right' },
-                                    tooltip: {
-                                        callbacks: {
-                                            label: (context) => {
-                                                const value = context.parsed || 0;
-                                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                                const pct = ((value / total) * 100).toFixed(1);
-                                                return `${context.label}: $${value.toFixed(2)} (${pct}%)`;
-                                            }
-                                        }
+                            labels: gastos.map(g => g.categoria),
+                            colors: colors,
+                            plotOptions: {
+                                pie: {
+                                    donut: {
+                                        size: '60%'
+                                    }
+                                }
+                            },
+                            legend: { position: 'right' },
+                            dataLabels: { enabled: false },
+                            tooltip: {
+                                y: {
+                                    formatter: (val, opts) => {
+                                        const total = opts.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                        const pct = ((val / total) * 100).toFixed(1);
+                                        return `$${val.toLocaleString('es-MX', {minimumFractionDigits: 2})} (${pct}%)`;
                                     }
                                 }
                             }
-                        });
+                        };
+
+                        this.expensesChart = new ApexCharts(container, options);
+                        this.expensesChart.render();
                         console.log('Expenses chart rendered successfully');
                     } catch (error) {
                         console.error('Error rendering expenses chart:', error);
