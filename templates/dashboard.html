@@ -257,6 +257,9 @@
                 <a class="tab" :class="taskView === 'kanban' ? 'tab-active' : ''" @click="taskView = 'kanban'">
                     <i class="fas fa-columns mr-2"></i> Kanban
                 </a>
+                <a class="tab" :class="taskView === 'gantt' ? 'tab-active' : ''" @click="taskView = 'gantt'; $nextTick(() => renderGanttChart())">
+                    <i class="fas fa-chart-gantt mr-2"></i> Gantt
+                </a>
             </div>
             
             <!-- List View -->
@@ -599,6 +602,31 @@
                 </div>
                 </div><!-- Close grid -->
             </div><!-- Close kanban view -->
+
+            <!-- Gantt View -->
+            <div x-show="taskView === 'gantt'">
+                <div class="card bg-base-100 shadow-lg">
+                    <div class="card-body">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="card-title">
+                                <i class="fas fa-chart-gantt text-primary"></i> Diagrama de Gantt
+                            </h2>
+                            <div class="flex gap-2">
+                                <button class="btn btn-sm" :class="ganttShowSubtasks ? 'btn-primary' : 'btn-ghost'"
+                                        @click="ganttShowSubtasks = !ganttShowSubtasks; $nextTick(() => renderGanttChart())">
+                                    <i :class="ganttShowSubtasks ? 'fas fa-eye' : 'fas fa-eye-slash'"></i>
+                                    <span x-text="ganttShowSubtasks ? 'Ocultar Subtareas' : 'Mostrar Subtareas'"></span>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="ganttChart" style="min-height: 400px;"></div>
+                        <div x-show="tasks.length === 0" class="text-center py-8 opacity-50">
+                            <i class="fas fa-chart-gantt text-4xl mb-2"></i>
+                            <p>No hay tareas para mostrar en el Gantt</p>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- Close gantt view -->
         </div>
 
         <!-- MONTHLY VIEW -->
@@ -2188,8 +2216,10 @@
                 showToast: false,
                 toastMessage: '',
                 toastType: 'success',
-                showSubtasks: true,
+                showSubtasks: false,
                 expandedMacrotasks: {}, // Control de expansión por macrotarea
+                ganttShowSubtasks: false,
+                ganttChart: null,
 
                 // Filtros de tareas
                 filterEstado: '',
@@ -3449,6 +3479,147 @@
                 navigateTo(view) {
                     this.currentView = view;
                     this.refreshCharts();
+                },
+
+                renderGanttChart() {
+                    try {
+                        const container = document.getElementById('ganttChart');
+                        if (!container) return;
+
+                        if (this.ganttChart) {
+                            this.ganttChart.destroy();
+                            this.ganttChart = null;
+                        }
+
+                        if (!this.tasks || this.tasks.length === 0) return;
+
+                        // Filtrar tareas según visibilidad
+                        let ganttTasks;
+                        if (this.ganttShowSubtasks) {
+                            // Mostrar todas, ordenadas jerárquicamente
+                            ganttTasks = [];
+                            const parentTasks = this.tasks.filter(t => !t.parent_task_id);
+                            const childTasks = this.tasks.filter(t => t.parent_task_id);
+                            parentTasks.forEach(parent => {
+                                ganttTasks.push(parent);
+                                if (parent.es_macrotarea) {
+                                    childTasks.filter(c => c.parent_task_id === parent.id).forEach(child => {
+                                        ganttTasks.push(child);
+                                    });
+                                }
+                            });
+                        } else {
+                            // Solo macrotareas y tareas independientes
+                            ganttTasks = this.tasks.filter(t => !t.parent_task_id);
+                        }
+
+                        // Filtrar tareas con fechas válidas
+                        ganttTasks = ganttTasks.filter(t => t.fecha_inicio && t.fecha_fin);
+                        if (ganttTasks.length === 0) return;
+
+                        // Construir series para ApexCharts rangeBar
+                        const series = [{
+                            data: ganttTasks.map(task => {
+                                const isSubtask = !!task.parent_task_id;
+                                const inicio = new Date(task.fecha_inicio).getTime();
+                                const fin = new Date(task.fecha_fin).getTime();
+                                // Asegurar que fin sea al menos un día después de inicio
+                                const finAjustado = fin <= inicio ? inicio + 86400000 : fin;
+
+                                let fillColor;
+                                if (task.estado === 'completada') fillColor = '#22c55e';
+                                else if (task.estado === 'en_progreso') fillColor = '#3b82f6';
+                                else fillColor = '#f59e0b';
+
+                                if (task.es_macrotarea && !task.parent_task_id) {
+                                    fillColor = '#6366f1';
+                                }
+
+                                return {
+                                    x: (isSubtask ? '  ↳ ' : '') + task.titulo,
+                                    y: [inicio, finAjustado],
+                                    fillColor: fillColor,
+                                    goals: task.es_macrotarea ? [{
+                                        name: 'Progreso',
+                                        value: task.progreso || 0,
+                                        strokeWidth: 0,
+                                        strokeColor: 'transparent'
+                                    }] : []
+                                };
+                            })
+                        }];
+
+                        const options = {
+                            series: series,
+                            chart: {
+                                type: 'rangeBar',
+                                height: Math.max(400, ganttTasks.length * 40 + 80),
+                                toolbar: { show: true }
+                            },
+                            plotOptions: {
+                                bar: {
+                                    horizontal: true,
+                                    barHeight: '60%',
+                                    borderRadius: 4
+                                }
+                            },
+                            xaxis: {
+                                type: 'datetime',
+                                labels: {
+                                    format: 'dd/MM',
+                                    datetimeUTC: false
+                                }
+                            },
+                            yaxis: {
+                                labels: {
+                                    style: {
+                                        fontSize: '12px'
+                                    },
+                                    maxWidth: 250
+                                }
+                            },
+                            tooltip: {
+                                custom: ({ seriesIndex, dataPointIndex, w }) => {
+                                    const data = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
+                                    const task = ganttTasks[dataPointIndex];
+                                    const inicio = new Date(data.y[0]).toLocaleDateString('es-MX');
+                                    const fin = new Date(data.y[1]).toLocaleDateString('es-MX');
+                                    const estado = task.estado.replace('_', ' ');
+                                    return `<div class="p-3">
+                                        <strong>${task.titulo}</strong><br>
+                                        <span class="text-sm">${inicio} - ${fin}</span><br>
+                                        <span class="text-sm">Estado: ${estado}</span><br>
+                                        <span class="text-sm">Progreso: ${task.progreso || 0}%</span>
+                                        ${task.clasificacion ? '<br><span class="text-sm">Clasificación: ' + task.clasificacion + '</span>' : ''}
+                                    </div>`;
+                                }
+                            },
+                            legend: {
+                                show: true,
+                                customLegendItems: ['Macrotarea', 'En Progreso', 'Pendiente', 'Completada'],
+                                markers: {
+                                    fillColors: ['#6366f1', '#3b82f6', '#f59e0b', '#22c55e']
+                                }
+                            },
+                            dataLabels: {
+                                enabled: true,
+                                formatter: (val, opts) => {
+                                    const task = ganttTasks[opts.dataPointIndex];
+                                    return task.progreso ? task.progreso + '%' : '';
+                                },
+                                style: {
+                                    fontSize: '11px',
+                                    colors: ['#fff']
+                                }
+                            }
+                        };
+
+                        this.ganttChart = new ApexCharts(container, options);
+                        this.ganttChart.render();
+                        console.log('Gantt chart rendered');
+                    } catch (error) {
+                        console.error('Error rendering gantt chart:', error);
+                    }
                 },
 
                 renderWeeklyChart() {
