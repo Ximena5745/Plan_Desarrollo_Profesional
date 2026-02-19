@@ -258,7 +258,7 @@
                     <i class="fas fa-columns mr-2"></i> Kanban
                 </a>
                 <a class="tab" :class="taskView === 'gantt' ? 'tab-active' : ''" @click="taskView = 'gantt'; $nextTick(() => renderGanttChart())">
-                    <i class="fas fa-chart-gantt mr-2"></i> Gantt
+                    <i class="fas fa-bars-staggered mr-2"></i> Gantt
                 </a>
             </div>
             
@@ -609,7 +609,7 @@
                     <div class="card-body">
                         <div class="flex justify-between items-center mb-4">
                             <h2 class="card-title">
-                                <i class="fas fa-chart-gantt text-primary"></i> Diagrama de Gantt
+                                <i class="fas fa-bars-staggered text-primary"></i> Diagrama de Gantt
                             </h2>
                             <div class="flex gap-2">
                                 <button class="btn btn-sm" :class="ganttShowSubtasks ? 'btn-primary' : 'btn-ghost'"
@@ -621,7 +621,7 @@
                         </div>
                         <div id="ganttChart" style="min-height: 400px;"></div>
                         <div x-show="tasks.length === 0" class="text-center py-8 opacity-50">
-                            <i class="fas fa-chart-gantt text-4xl mb-2"></i>
+                            <i class="fas fa-bars-staggered text-4xl mb-2"></i>
                             <p>No hay tareas para mostrar en el Gantt</p>
                         </div>
                     </div>
