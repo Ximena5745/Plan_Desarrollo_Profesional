@@ -333,30 +333,30 @@
                                     <span x-text="filteredTasks.filter(t => t.parent_task_id).length"></span> subtareas)
                                 </span>
                             </div>
-                            <button class="btn btn-sm" @click="showSubtasks = !showSubtasks"
+                            <button class="btn btn-sm" @click="toggleAllMacrotasks()"
                                     :class="showSubtasks ? 'btn-primary' : 'btn-ghost'">
                                 <i :class="showSubtasks ? 'fas fa-eye' : 'fas fa-eye-slash'"></i>
                                 <span x-text="showSubtasks ? 'Ocultar Subtareas' : 'Mostrar Subtareas'"></span>
                             </button>
                         </div>
 
-                        <div class="overflow-x-auto">
+                        <div class="overflow-x-auto overflow-y-auto" style="max-height: 70vh;">
                             <table class="table table-compact">
-                                <thead>
+                                <thead class="sticky top-0 z-10 bg-base-100 shadow-sm">
                                     <tr>
-                                        <th>Tarea / Proyecto</th>
-                                        <th>Clasificación</th>
-                                        <th>Progreso</th>
-                                        <th>Estado</th>
-                                        <th>Fechas</th>
-                                        <th>Prioridad</th>
-                                        <th>Acciones</th>
+                                        <th class="bg-base-100">Tarea / Proyecto</th>
+                                        <th class="bg-base-100">Clasificación</th>
+                                        <th class="bg-base-100">Progreso</th>
+                                        <th class="bg-base-100">Estado</th>
+                                        <th class="bg-base-100">Fechas</th>
+                                        <th class="bg-base-100">Prioridad</th>
+                                        <th class="bg-base-100">Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <!-- Mostrar todas las tareas con jerarquía visual -->
                                     <template x-for="task in filteredTasks" :key="task.id">
-                                        <tr x-show="!task.parent_task_id || (showSubtasks && isMacrotaskExpanded(task.parent_task_id))"
+                                        <tr x-show="!task.parent_task_id || isMacrotaskExpanded(task.parent_task_id)"
                                             :class="{'bg-base-200': task.es_macrotarea && !task.parent_task_id, 'hover': task.parent_task_id}">
                                             <td>
                                                 <div class="flex items-center gap-2" :class="{'pl-8': task.parent_task_id}">
@@ -2531,9 +2531,19 @@
                     };
                 },
 
+                toggleAllMacrotasks() {
+                    this.showSubtasks = !this.showSubtasks;
+                    const macrotareas = this.tasks.filter(t => t.es_macrotarea && !t.parent_task_id);
+                    const newState = {};
+                    macrotareas.forEach(m => {
+                        newState[m.id] = this.showSubtasks;
+                    });
+                    this.expandedMacrotasks = newState;
+                },
+
                 isMacrotaskExpanded(taskId) {
-                    // Por defecto expandidas (true), solo colapsadas si explícitamente false
-                    return this.expandedMacrotasks[taskId] !== false;
+                    if (this.expandedMacrotasks[taskId] === undefined) return false;
+                    return this.expandedMacrotasks[taskId];
                 },
 
                 hasSubtasks(taskId) {
@@ -2627,25 +2637,29 @@
                 async handleDrop(event, newStatus) {
                     event.preventDefault();
                     event.target.classList.remove('drag-over');
-                    
+
                     if (this.draggedTask && this.draggedTask.estado !== newStatus) {
                         try {
                             await this.apiCall(`/api/tasks/${this.draggedTask.id}`, 'PUT', {
                                 estado: newStatus
                             });
-                            
+
                             // Actualizar estado local
                             const task = this.tasks.find(t => t.id === this.draggedTask.id);
                             if (task) {
                                 task.estado = newStatus;
+                                // Recalcular macrotarea padre si es subtarea
+                                if (task.parent_task_id) {
+                                    await this.recalcularProgresoMacrotarea(task.parent_task_id);
+                                }
                             }
-                            
+
                             this.showNotification('Tarea actualizada correctamente', 'success');
                         } catch (error) {
                             this.showNotification('Error al actualizar tarea', 'error');
                         }
                     }
-                    
+
                     this.draggedTask = null;
                 },
                 
@@ -2664,9 +2678,10 @@
                             await this.loadTasks();
                             await this.loadDashboardData();
 
-                            // Recalcular fechas de macrotarea si es subtarea
+                            // Recalcular fechas y progreso de macrotarea si es subtarea
                             if (parentTaskId) {
                                 await this.recalcularFechasMacrotarea(parentTaskId);
+                                await this.recalcularProgresoMacrotarea(parentTaskId);
                             }
 
                             // Reset form
@@ -2704,9 +2719,10 @@
                         this.showNotification('Tarea eliminada', 'success');
                         await this.loadDashboardData();
 
-                        // Si era una subtarea, recalcular fechas de la macrotarea padre
+                        // Si era una subtarea, recalcular fechas y progreso de la macrotarea padre
                         if (parentTaskId) {
                             await this.recalcularFechasMacrotarea(parentTaskId);
+                            await this.recalcularProgresoMacrotarea(parentTaskId);
                         }
                     } catch (error) {
                         this.showNotification('Error al eliminar tarea', 'error');
@@ -2731,15 +2747,31 @@
                             await this.loadTasks();
                             await this.loadDashboardData();
 
-                            // Si es una subtarea, recalcular fechas de la macrotarea padre
+                            // Si es una subtarea, recalcular fechas y progreso de la macrotarea padre
                             if (parentTaskId) {
                                 await this.recalcularFechasMacrotarea(parentTaskId);
+                                await this.recalcularProgresoMacrotarea(parentTaskId);
                             }
 
                             this.editingTask = null;
                         }
                     } catch (error) {
                         this.showNotification('Error al actualizar tarea: ' + error.message, 'error');
+                    }
+                },
+
+                async recalcularProgresoMacrotarea(macrotareaId) {
+                    try {
+                        const response = await this.apiCall(`/api/tasks/${macrotareaId}/recalcular-progreso`, 'PUT');
+                        if (response && response.message !== 'No hay subtareas') {
+                            const taskIndex = this.tasks.findIndex(t => t.id === macrotareaId);
+                            if (taskIndex !== -1) {
+                                this.tasks[taskIndex].progreso = response.progreso;
+                                this.tasks[taskIndex].estado = response.estado;
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error al recalcular progreso:', error);
                     }
                 },
 
@@ -3919,7 +3951,29 @@
                         });
                     }
 
-                    return filtered;
+                    // Ordenar jerárquicamente: macrotarea -> sus subtareas -> siguiente tarea
+                    const parentTasks = filtered.filter(t => !t.parent_task_id);
+                    const childTasks = filtered.filter(t => t.parent_task_id);
+                    const ordered = [];
+
+                    parentTasks.forEach(parent => {
+                        ordered.push(parent);
+                        // Insertar subtareas justo después de su macrotarea
+                        if (parent.es_macrotarea) {
+                            const children = childTasks.filter(c => c.parent_task_id === parent.id);
+                            ordered.push(...children);
+                        }
+                    });
+
+                    // Agregar subtareas huérfanas (cuyo padre fue filtrado)
+                    const assignedChildIds = new Set(ordered.filter(t => t.parent_task_id).map(t => t.id));
+                    childTasks.forEach(child => {
+                        if (!assignedChildIds.has(child.id)) {
+                            ordered.push(child);
+                        }
+                    });
+
+                    return ordered;
                 },
 
                 get uniqueClasificaciones() {

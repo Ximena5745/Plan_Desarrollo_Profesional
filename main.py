@@ -740,7 +740,7 @@ async def get_subtareas(task_id: str, user_id: str = Depends(verify_token)):
 
 @app.put("/api/tasks/{task_id}/recalcular-progreso")
 async def recalcular_progreso(task_id: str, user_id: str = Depends(verify_token)):
-    """Recalcular progreso de una macrotarea basándose en sus subtareas"""
+    """Recalcular progreso y estado de una macrotarea basándose en sus subtareas"""
     # Verificar que la tarea existe y pertenece al usuario
     task = supabase_admin.table("daily_tasks") \
         .select("*") \
@@ -755,26 +755,39 @@ async def recalcular_progreso(task_id: str, user_id: str = Depends(verify_token)
     if not task.data.get("es_macrotarea"):
         raise HTTPException(400, "La tarea no es una macrotarea")
 
-    # Obtener subtareas
+    # Obtener subtareas con progreso y estado
     subtareas = supabase_admin.table("daily_tasks") \
-        .select("progreso") \
+        .select("progreso, estado") \
         .eq("parent_task_id", task_id) \
         .execute()
 
     if not subtareas.data:
-        return {"message": "No hay subtareas", "progreso": 0}
+        return {"message": "No hay subtareas", "progreso": 0, "estado": "pendiente"}
 
-    # Calcular promedio
+    # Calcular promedio de progreso
     total = sum(st.get("progreso", 0) for st in subtareas.data)
     promedio = total // len(subtareas.data)
 
-    # Actualizar macrotarea
+    # Determinar estado basado en subtareas
+    estados = [st.get("estado", "pendiente") for st in subtareas.data]
+    todas_completadas = all(e == "completada" for e in estados)
+    alguna_en_progreso = any(e == "en_progreso" for e in estados)
+    alguna_completada = any(e == "completada" for e in estados)
+
+    if todas_completadas:
+        nuevo_estado = "completada"
+    elif alguna_en_progreso or alguna_completada:
+        nuevo_estado = "en_progreso"
+    else:
+        nuevo_estado = "pendiente"
+
+    # Actualizar macrotarea con progreso y estado
     updated = supabase_admin.table("daily_tasks") \
-        .update({"progreso": promedio}) \
+        .update({"progreso": promedio, "estado": nuevo_estado}) \
         .eq("id", task_id) \
         .execute()
 
-    return {"message": "Progreso recalculado", "progreso": promedio}
+    return {"message": "Progreso y estado recalculados", "progreso": promedio, "estado": nuevo_estado}
 
 @app.put("/api/tasks/{task_id}/recalcular-fechas")
 async def recalcular_fechas(task_id: str, user_id: str = Depends(verify_token)):
