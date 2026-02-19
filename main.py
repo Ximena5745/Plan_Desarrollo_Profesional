@@ -703,18 +703,24 @@ async def update_task(task_id: str, task: TaskUpdate, user_id: str = Depends(ver
         data["fecha_fin"] = data["fecha_fin"].isoformat()
 
     # Sincronizar progreso y estado automáticamente
-    if data.get("estado") == "completada":
-        data["completed_at"] = datetime.utcnow().isoformat()
-        data["progreso"] = 100
-    elif "progreso" in data and "estado" not in data:
+    # El progreso siempre tiene prioridad para determinar el estado
+    if "progreso" in data:
         progreso = int(data.get("progreso", 0))
         if progreso == 100:
             data["estado"] = "completada"
             data["completed_at"] = datetime.utcnow().isoformat()
         elif progreso > 0:
-            data["estado"] = "en_progreso"
+            # Solo sobreescribir si el estado enviado no es manualmente "completada" o "cancelada"
+            estado_enviado = data.get("estado", "")
+            if estado_enviado not in ("completada", "cancelada"):
+                data["estado"] = "en_progreso"
         else:
-            data["estado"] = "pendiente"
+            estado_enviado = data.get("estado", "")
+            if estado_enviado not in ("completada", "cancelada", "en_progreso"):
+                data["estado"] = "pendiente"
+    elif data.get("estado") == "completada":
+        data["completed_at"] = datetime.utcnow().isoformat()
+        data["progreso"] = 100
 
     response = supabase_admin.table("daily_tasks") \
         .update(data) \
@@ -1184,9 +1190,11 @@ async def get_dashboard_summary(user_id: str = Depends(verify_token)):
         .execute()
 
     tasks_data = tasks_month.data
-    total_tasks = len(tasks_data)
-    completed_tasks = len([t for t in tasks_data if t["estado"] == "completada"])
-    pending_tasks = len([t for t in tasks_data if t["estado"] == "pendiente"])
+    # Excluir macrotareas de las estadísticas (solo contar actividades reales)
+    actividades = [t for t in tasks_data if not t.get("es_macrotarea", False)]
+    total_tasks = len(actividades)
+    completed_tasks = len([t for t in actividades if t["estado"] == "completada"])
+    pending_tasks = len([t for t in actividades if t["estado"] == "pendiente"])
     
     # Plan mensual actual
     current_plan = supabase_admin.table("monthly_plans") \
