@@ -477,129 +477,194 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <!-- Pendientes Column -->
                     <div class="card bg-base-100 shadow-lg">
-                    <div class="card-body">
-                        <h3 class="card-title text-warning">
-                            <i class="fas fa-clock"></i> Pendientes
-                            <span class="badge badge-warning" x-text="getTasksByStatus('pendiente').length"></span>
-                        </h3>
-                        <div class="space-y-2 min-h-[400px]" 
-                             @drop="handleDrop($event, 'pendiente')" 
-                             @dragover.prevent 
-                             @dragenter.prevent="$event.target.classList.add('drag-over')"
-                             @dragleave="$event.target.classList.remove('drag-over')">
-                            <template x-for="task in getTasksByStatus('pendiente')" :key="task.id">
-                                <div class="card bg-base-200 shadow cursor-move"
-                                     draggable="true"
-                                     @dragstart="handleDragStart($event, task)"
-                                     @dragend="handleDragEnd">
-                                    <div class="card-body p-4">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <h4 class="font-bold flex-1" x-text="task.titulo"></h4>
-                                            <div class="dropdown dropdown-end">
-                                                <label tabindex="0" class="btn btn-ghost btn-xs">
-                                                    <i class="fas fa-ellipsis-v"></i>
-                                                </label>
-                                                <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-40">
-                                                    <li><a @click="editTask(task)"><i class="fas fa-edit"></i> Editar</a></li>
-                                                    <li><a @click="deleteTask(task.id)" class="text-error"><i class="fas fa-trash"></i> Eliminar</a></li>
-                                                </ul>
+                        <div class="card-body">
+                            <h3 class="card-title text-warning">
+                                <i class="fas fa-clock"></i> Pendientes
+                                <span class="badge badge-warning" x-text="getTasksByStatus('pendiente').length"></span>
+                            </h3>
+                            <div class="space-y-2 min-h-[400px]"
+                                 @drop="handleDrop($event, 'pendiente')"
+                                 @dragover.prevent
+                                 @dragenter.prevent="$event.target.classList.add('drag-over')"
+                                 @dragleave="$event.target.classList.remove('drag-over')">
+                                <template x-for="task in getTasksByStatus('pendiente')" :key="task.id">
+                                    <div class="card bg-base-200 shadow cursor-move border-l-4"
+                                         :class="task.es_macrotarea ? 'border-purple-500' : task.parent_task_id ? 'border-gray-400 ml-3' : 'border-base-300'"
+                                         draggable="true"
+                                         @dragstart="handleDragStart($event, task)"
+                                         @dragend="handleDragEnd">
+                                        <div class="card-body p-3">
+                                            <!-- Header tarjeta -->
+                                            <div class="flex justify-between items-start gap-1">
+                                                <div class="flex items-center gap-1 flex-1 min-w-0">
+                                                    <i class="fas flex-none text-xs"
+                                                       :class="task.es_macrotarea ? 'fa-folder text-purple-500' : task.parent_task_id ? 'fa-level-up-alt fa-rotate-90 text-gray-400' : 'fa-circle-check text-success opacity-40'"></i>
+                                                    <h4 class="font-bold text-sm leading-tight truncate"
+                                                        :class="{'text-purple-700': task.es_macrotarea}"
+                                                        x-text="task.titulo"></h4>
+                                                </div>
+                                                <div class="dropdown dropdown-end flex-none">
+                                                    <label tabindex="0" class="btn btn-ghost btn-xs p-0"><i class="fas fa-ellipsis-v text-xs"></i></label>
+                                                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-36 z-50">
+                                                        <li><a @click="editTask(task)"><i class="fas fa-edit"></i> Editar</a></li>
+                                                        <li><a @click="deleteTask(task.id)" class="text-error"><i class="fas fa-trash"></i> Eliminar</a></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <!-- Padre si es subtarea -->
+                                            <template x-if="task.parent_task_id">
+                                                <div class="text-xs opacity-50 truncate" x-text="'↳ ' + (tasks.find(t => t.id === task.parent_task_id)?.titulo || 'Macrotarea')"></div>
+                                            </template>
+                                            <!-- Contador subtareas si es macrotarea -->
+                                            <template x-if="task.es_macrotarea">
+                                                <div class="text-xs text-purple-600 font-medium">
+                                                    <i class="fas fa-layer-group"></i>
+                                                    <span x-text="tasks.filter(t => t.parent_task_id === task.id).length + ' actividades'"></span>
+                                                </div>
+                                            </template>
+                                            <!-- Descripción -->
+                                            <p class="text-xs opacity-60 line-clamp-2" x-show="task.descripcion" x-text="task.descripcion"></p>
+                                            <!-- Barra de progreso -->
+                                            <div x-show="task.progreso > 0" class="w-full bg-base-300 rounded-full h-1 mt-1">
+                                                <div class="h-1 rounded-full"
+                                                     :class="task.es_macrotarea ? 'bg-purple-500' : 'bg-warning'"
+                                                     :style="'width:' + (task.progreso || 0) + '%'"></div>
+                                            </div>
+                                            <!-- Footer -->
+                                            <div class="flex justify-between items-center mt-1 flex-wrap gap-1">
+                                                <span class="badge badge-xs" x-text="task.categoria"></span>
+                                                <div class="flex gap-1">
+                                                    <span class="badge badge-xs" :class="getPriorityBadgeClass(task.prioridad)" x-text="capitalize(task.prioridad)"></span>
+                                                    <span x-show="task.progreso > 0" class="text-xs opacity-60" x-text="(task.progreso || 0) + '%'"></span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <p class="text-sm opacity-70" x-text="task.descripcion"></p>
-                                        <div class="flex justify-between items-center mt-2">
-                                            <span class="badge badge-sm" x-text="task.categoria"></span>
-                                            <span class="badge badge-sm" :class="getPriorityBadgeClass(task.prioridad)" x-text="capitalize(task.prioridad)"></span>
-                                        </div>
                                     </div>
-                                </div>
-                            </template>
+                                </template>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- En Progreso Column -->
-                <div class="card bg-base-100 shadow-lg">
-                    <div class="card-body">
-                        <h3 class="card-title text-info">
-                            <i class="fas fa-spinner"></i> En Progreso
-                            <span class="badge badge-info" x-text="getTasksByStatus('en_progreso').length"></span>
-                        </h3>
-                        <div class="space-y-2 min-h-[400px]"
-                             @drop="handleDrop($event, 'en_progreso')" 
-                             @dragover.prevent
-                             @dragenter.prevent="$event.target.classList.add('drag-over')"
-                             @dragleave="$event.target.classList.remove('drag-over')">
-                            <template x-for="task in getTasksByStatus('en_progreso')" :key="task.id">
-                                <div class="card bg-base-200 shadow cursor-move"
-                                     draggable="true"
-                                     @dragstart="handleDragStart($event, task)"
-                                     @dragend="handleDragEnd">
-                                    <div class="card-body p-4">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <h4 class="font-bold flex-1" x-text="task.titulo"></h4>
-                                            <div class="dropdown dropdown-end">
-                                                <label tabindex="0" class="btn btn-ghost btn-xs">
-                                                    <i class="fas fa-ellipsis-v"></i>
-                                                </label>
-                                                <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-40">
-                                                    <li><a @click="editTask(task)"><i class="fas fa-edit"></i> Editar</a></li>
-                                                    <li><a @click="deleteTask(task.id)" class="text-error"><i class="fas fa-trash"></i> Eliminar</a></li>
-                                                </ul>
+
+                    <!-- En Progreso Column -->
+                    <div class="card bg-base-100 shadow-lg">
+                        <div class="card-body">
+                            <h3 class="card-title text-info">
+                                <i class="fas fa-spinner"></i> En Progreso
+                                <span class="badge badge-info" x-text="getTasksByStatus('en_progreso').length"></span>
+                            </h3>
+                            <div class="space-y-2 min-h-[400px]"
+                                 @drop="handleDrop($event, 'en_progreso')"
+                                 @dragover.prevent
+                                 @dragenter.prevent="$event.target.classList.add('drag-over')"
+                                 @dragleave="$event.target.classList.remove('drag-over')">
+                                <template x-for="task in getTasksByStatus('en_progreso')" :key="task.id">
+                                    <div class="card bg-base-200 shadow cursor-move border-l-4"
+                                         :class="task.es_macrotarea ? 'border-purple-500' : task.parent_task_id ? 'border-gray-400 ml-3' : 'border-info'"
+                                         draggable="true"
+                                         @dragstart="handleDragStart($event, task)"
+                                         @dragend="handleDragEnd">
+                                        <div class="card-body p-3">
+                                            <div class="flex justify-between items-start gap-1">
+                                                <div class="flex items-center gap-1 flex-1 min-w-0">
+                                                    <i class="fas flex-none text-xs"
+                                                       :class="task.es_macrotarea ? 'fa-folder text-purple-500' : task.parent_task_id ? 'fa-level-up-alt fa-rotate-90 text-gray-400' : 'fa-circle-check text-info opacity-60'"></i>
+                                                    <h4 class="font-bold text-sm leading-tight truncate"
+                                                        :class="{'text-purple-700': task.es_macrotarea}"
+                                                        x-text="task.titulo"></h4>
+                                                </div>
+                                                <div class="dropdown dropdown-end flex-none">
+                                                    <label tabindex="0" class="btn btn-ghost btn-xs p-0"><i class="fas fa-ellipsis-v text-xs"></i></label>
+                                                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-36 z-50">
+                                                        <li><a @click="editTask(task)"><i class="fas fa-edit"></i> Editar</a></li>
+                                                        <li><a @click="deleteTask(task.id)" class="text-error"><i class="fas fa-trash"></i> Eliminar</a></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <template x-if="task.parent_task_id">
+                                                <div class="text-xs opacity-50 truncate" x-text="'↳ ' + (tasks.find(t => t.id === task.parent_task_id)?.titulo || 'Macrotarea')"></div>
+                                            </template>
+                                            <template x-if="task.es_macrotarea">
+                                                <div class="text-xs text-purple-600 font-medium">
+                                                    <i class="fas fa-layer-group"></i>
+                                                    <span x-text="tasks.filter(t => t.parent_task_id === task.id).length + ' actividades'"></span>
+                                                </div>
+                                            </template>
+                                            <p class="text-xs opacity-60 line-clamp-2" x-show="task.descripcion" x-text="task.descripcion"></p>
+                                            <div class="w-full bg-base-300 rounded-full h-1 mt-1">
+                                                <div class="h-1 rounded-full"
+                                                     :class="task.es_macrotarea ? 'bg-purple-500' : 'bg-info'"
+                                                     :style="'width:' + (task.progreso || 0) + '%'"></div>
+                                            </div>
+                                            <div class="flex justify-between items-center mt-1 flex-wrap gap-1">
+                                                <span class="badge badge-xs" x-text="task.categoria"></span>
+                                                <div class="flex gap-1 items-center">
+                                                    <span class="badge badge-xs" :class="getPriorityBadgeClass(task.prioridad)" x-text="capitalize(task.prioridad)"></span>
+                                                    <span class="text-xs font-semibold text-info" x-text="(task.progreso || 0) + '%'"></span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <p class="text-sm opacity-70" x-text="task.descripcion"></p>
-                                        <div class="flex justify-between items-center mt-2">
-                                            <span class="badge badge-sm" x-text="task.categoria"></span>
-                                            <span class="badge badge-sm" :class="getPriorityBadgeClass(task.prioridad)" x-text="capitalize(task.prioridad)"></span>
-                                        </div>
                                     </div>
-                                </div>
-                            </template>
+                                </template>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Completadas Column -->
-                <div class="card bg-base-100 shadow-lg">
-                    <div class="card-body">
-                        <h3 class="card-title text-success">
-                            <i class="fas fa-check-circle"></i> Completadas
-                            <span class="badge badge-success" x-text="getTasksByStatus('completada').length"></span>
-                        </h3>
-                        <div class="space-y-2 min-h-[400px]"
-                             @drop="handleDrop($event, 'completada')" 
-                             @dragover.prevent
-                             @dragenter.prevent="$event.target.classList.add('drag-over')"
-                             @dragleave="$event.target.classList.remove('drag-over')">
-                            <template x-for="task in getTasksByStatus('completada')" :key="task.id">
-                                <div class="card bg-base-200 shadow cursor-move"
-                                     draggable="true"
-                                     @dragstart="handleDragStart($event, task)"
-                                     @dragend="handleDragEnd">
-                                    <div class="card-body p-4">
-                                        <div class="flex justify-between items-start mb-2">
-                                            <h4 class="font-bold line-through flex-1" x-text="task.titulo"></h4>
-                                            <div class="dropdown dropdown-end">
-                                                <label tabindex="0" class="btn btn-ghost btn-xs">
-                                                    <i class="fas fa-ellipsis-v"></i>
-                                                </label>
-                                                <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-40">
-                                                    <li><a @click="editTask(task)"><i class="fas fa-edit"></i> Editar</a></li>
-                                                    <li><a @click="deleteTask(task.id)" class="text-error"><i class="fas fa-trash"></i> Eliminar</a></li>
-                                                </ul>
+
+                    <!-- Completadas Column -->
+                    <div class="card bg-base-100 shadow-lg">
+                        <div class="card-body">
+                            <h3 class="card-title text-success">
+                                <i class="fas fa-check-circle"></i> Completadas
+                                <span class="badge badge-success" x-text="getTasksByStatus('completada').length"></span>
+                            </h3>
+                            <div class="space-y-2 min-h-[400px]"
+                                 @drop="handleDrop($event, 'completada')"
+                                 @dragover.prevent
+                                 @dragenter.prevent="$event.target.classList.add('drag-over')"
+                                 @dragleave="$event.target.classList.remove('drag-over')">
+                                <template x-for="task in getTasksByStatus('completada')" :key="task.id">
+                                    <div class="card bg-base-200 shadow cursor-move border-l-4"
+                                         :class="task.es_macrotarea ? 'border-purple-400' : task.parent_task_id ? 'border-gray-400 ml-3' : 'border-success'"
+                                         draggable="true"
+                                         @dragstart="handleDragStart($event, task)"
+                                         @dragend="handleDragEnd">
+                                        <div class="card-body p-3">
+                                            <div class="flex justify-between items-start gap-1">
+                                                <div class="flex items-center gap-1 flex-1 min-w-0">
+                                                    <i class="fas flex-none text-xs"
+                                                       :class="task.es_macrotarea ? 'fa-folder text-purple-400' : task.parent_task_id ? 'fa-level-up-alt fa-rotate-90 text-gray-400' : 'fa-circle-check text-success'"></i>
+                                                    <h4 class="font-bold text-sm leading-tight truncate line-through opacity-70" x-text="task.titulo"></h4>
+                                                </div>
+                                                <div class="dropdown dropdown-end flex-none">
+                                                    <label tabindex="0" class="btn btn-ghost btn-xs p-0"><i class="fas fa-ellipsis-v text-xs"></i></label>
+                                                    <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-36 z-50">
+                                                        <li><a @click="editTask(task)"><i class="fas fa-edit"></i> Editar</a></li>
+                                                        <li><a @click="deleteTask(task.id)" class="text-error"><i class="fas fa-trash"></i> Eliminar</a></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                            <template x-if="task.parent_task_id">
+                                                <div class="text-xs opacity-50 truncate" x-text="'↳ ' + (tasks.find(t => t.id === task.parent_task_id)?.titulo || 'Macrotarea')"></div>
+                                            </template>
+                                            <template x-if="task.es_macrotarea">
+                                                <div class="text-xs text-purple-500 font-medium">
+                                                    <i class="fas fa-layer-group"></i>
+                                                    <span x-text="tasks.filter(t => t.parent_task_id === task.id).length + ' actividades'"></span>
+                                                </div>
+                                            </template>
+                                            <p class="text-xs opacity-50 line-clamp-2" x-show="task.descripcion" x-text="task.descripcion"></p>
+                                            <div class="w-full bg-base-300 rounded-full h-1 mt-1">
+                                                <div class="h-1 rounded-full bg-success w-full"></div>
+                                            </div>
+                                            <div class="flex justify-between items-center mt-1">
+                                                <span class="badge badge-xs" x-text="task.categoria"></span>
+                                                <span class="text-xs text-success font-semibold">✓ 100%</span>
                                             </div>
                                         </div>
-                                        <p class="text-sm opacity-70" x-text="task.descripcion"></p>
-                                        <div class="flex justify-between items-center mt-2">
-                                            <span class="badge badge-sm" x-text="task.categoria"></span>
-                                            <span class="text-xs text-success">✓ Completada</span>
-                                        </div>
                                     </div>
-                                </div>
-                            </template>
+                                </template>
+                            </div>
                         </div>
                     </div>
-                </div>
                 </div><!-- Close grid -->
             </div><!-- Close kanban view -->
 

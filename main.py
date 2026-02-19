@@ -702,10 +702,19 @@ async def update_task(task_id: str, task: TaskUpdate, user_id: str = Depends(ver
     if isinstance(data.get("fecha_fin"), date):
         data["fecha_fin"] = data["fecha_fin"].isoformat()
 
-    # Si se marca como completada, agregar timestamp y progreso 100%
+    # Sincronizar progreso y estado automáticamente
     if data.get("estado") == "completada":
         data["completed_at"] = datetime.utcnow().isoformat()
         data["progreso"] = 100
+    elif "progreso" in data and "estado" not in data:
+        progreso = int(data.get("progreso", 0))
+        if progreso == 100:
+            data["estado"] = "completada"
+            data["completed_at"] = datetime.utcnow().isoformat()
+        elif progreso > 0:
+            data["estado"] = "en_progreso"
+        else:
+            data["estado"] = "pendiente"
 
     response = supabase_admin.table("daily_tasks") \
         .update(data) \
@@ -752,9 +761,6 @@ async def recalcular_progreso(task_id: str, user_id: str = Depends(verify_token)
     if not task.data:
         raise HTTPException(404, "Tarea no encontrada")
 
-    if not task.data.get("es_macrotarea"):
-        raise HTTPException(400, "La tarea no es una macrotarea")
-
     # Obtener subtareas con progreso y estado
     subtareas = supabase_admin.table("daily_tasks") \
         .select("progreso, estado") \
@@ -762,7 +768,7 @@ async def recalcular_progreso(task_id: str, user_id: str = Depends(verify_token)
         .execute()
 
     if not subtareas.data:
-        return {"message": "No hay subtareas", "progreso": 0, "estado": "pendiente"}
+        return {"message": "No hay subtareas", "progreso": task.data.get("progreso", 0), "estado": task.data.get("estado", "pendiente")}
 
     # Calcular promedio de progreso
     total = sum(st.get("progreso", 0) for st in subtareas.data)
